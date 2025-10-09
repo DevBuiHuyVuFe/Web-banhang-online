@@ -45,7 +45,7 @@ const AdminProductCreate: React.FC = () => {
     is_primary: false,
     sort_order: 0
   });
-  // State cho áº£nh chÃ­nh
+  // State cho ảnh chính
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [imageMode, setImageMode] = useState<'url' | 'file'>('url');
@@ -67,18 +67,18 @@ const AdminProductCreate: React.FC = () => {
     loadCategories();
   }, []);
 
-  // Tá»± Ä‘á»™ng táº¡o slug tá»« tÃªn sáº£n pháº©m
+  // Tự động tạo slug từ tên sản phẩm
   const generateSlug = (name: string): string => {
     if (!name.trim()) return '';
     
     return name
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Bá» dáº¥u tiáº¿ng Viá»‡t
-      .replace(/[Ä‘Ä]/g, 'd') // Thay Ä‘/Ä thÃ nh d
-      .replace(/[^a-z0-9\s-]/g, '') // Chá»‰ giá»¯ chá»¯ cÃ¡i, sá»‘, khoáº£ng tráº¯ng, dáº¥u gáº¡ch
-      .replace(/\s+/g, '-') // Thay khoáº£ng tráº¯ng báº±ng dáº¥u gáº¡ch
-      .replace(/-+/g, '-') // Loáº¡i bá» dáº¥u gáº¡ch liÃªn tiáº¿p
+      .replace(/[\u0300-\u036f]/g, '') // Bỏ dấu tiếng Việt
+      .replace(/[đĐ]/g, 'd') // Thay đ/Đ thành d
+      .replace(/[^a-z0-9\s-]/g, '') // Chỉ giữ chữ cái, số, khoảng trắng, dấu gạch
+      .replace(/\s+/g, '-') // Thay khoảng trắng bằng dấu gạch
+      .replace(/-+/g, '-') // Loại bỏ dấu gạch liên tiếp
       .trim();
   };
 
@@ -91,7 +91,7 @@ const AdminProductCreate: React.FC = () => {
     }));
   };
 
-  // Xá»­ lÃ½ upload áº£nh
+  // Xử lý upload ảnh
   const handleFileSelect = (file: File) => {
     if (file && file.type.startsWith('image/')) {
       setSelectedFile(file);
@@ -101,7 +101,7 @@ const AdminProductCreate: React.FC = () => {
         has_images: true
       }));
     } else {
-      alert('Vui lÃ²ng chá»n file áº£nh há»£p lá»‡');
+      alert('Vui lòng chọn file ảnh hợp lệ');
     }
   };
 
@@ -131,15 +131,15 @@ const AdminProductCreate: React.FC = () => {
     }
   };
 
-  // Quáº£n lÃ½ áº£nh con
+  // Quản lý ảnh con
   const addProductImage = async () => {
     if (imageMode === 'url' && !newImage.url.trim()) {
-      alert('Vui lÃ²ng nháº­p URL áº£nh');
+      alert('Vui lòng nhập URL ảnh');
       return;
     }
     
     if (imageMode === 'file' && !newImage.file) {
-      alert('Vui lÃ²ng chá»n file áº£nh');
+      alert('Vui lòng chọn file ảnh');
       return;
     }
 
@@ -147,14 +147,14 @@ const AdminProductCreate: React.FC = () => {
       let imageUrl = newImage.url;
       
       if (newImage.file) {
-        // Upload file thá»±c táº¿ lÃªn server
+        // Upload file thực tế lên server
         const uploadResult = await AdminService.uploadImage(newImage.file);
         
-        // KhÃ´ng cáº§n thÃªm http://localhost:3000 vÃ¬ backend Ä‘Ã£ thÃªm rá»“i
+        // Không cần thêm http://localhost:3000 vì backend đã thêm rồi
         imageUrl = uploadResult.url;
       }
 
-      // ThÃªm áº£nh con vÃ o danh sÃ¡ch
+      // Thêm ảnh con vào danh sách
       const newProductImage = {
         url: imageUrl,
         is_primary: newImage.is_primary,
@@ -172,19 +172,19 @@ const AdminProductCreate: React.FC = () => {
         file: null
       });
       
-      // Reset vá» mode URL
+      // Reset về mode URL
       setImageMode('url');
       
-      alert('ThÃªm áº£nh con thÃ nh cÃ´ng!');
+      alert('Thêm ảnh con thành công!');
     } catch (e: any) {
-      alert('ThÃªm áº£nh con tháº¥t báº¡i: ' + e.message);
+      alert('Thêm ảnh con thất bại: ' + e.message);
     }
   };
 
   const removeProductImage = (index: number) => {
     const removedImage = productImages[index];
     
-    // Náº¿u xÃ³a áº£nh chÃ­nh, cáº­p nháº­t áº£nh cha
+    // Nếu xóa ảnh chính, cập nhật ảnh cha
     if (removedImage.is_primary && form.product_img === removedImage.url) {
       setForm(prev => ({
         ...prev,
@@ -202,7 +202,7 @@ const AdminProductCreate: React.FC = () => {
       is_primary: i === index ? isPrimary : false
     })));
     
-    // Cáº­p nháº­t áº£nh cha náº¿u Ä‘áº·t áº£nh chÃ­nh
+    // Cập nhật ảnh cha nếu đặt ảnh chính
     if (isPrimary) {
       setForm(prev => ({
         ...prev,
@@ -212,16 +212,16 @@ const AdminProductCreate: React.FC = () => {
     }
   };
 
-  // Xá»­ lÃ½ upload file cho áº£nh con
+  // Xử lý upload file cho ảnh con
   const handleImageFileSelect = (file: File) => {
     if (file && file.type.startsWith('image/')) {
       setNewImage(prev => ({
         ...prev,
         file,
-        url: URL.createObjectURL(file) // Táº¡o URL táº¡m thá»i Ä‘á»ƒ preview
+        url: URL.createObjectURL(file) // Tạo URL tạm thời để preview
       }));
     } else {
-      alert('Vui lÃ²ng chá»n file áº£nh há»£p lá»‡');
+      alert('Vui lòng chọn file ảnh hợp lệ');
     }
   };
 
@@ -281,47 +281,47 @@ const AdminProductCreate: React.FC = () => {
     
     try {
       if (!form.name || !form.slug) {
-        setError('TÃªn vÃ  slug lÃ  báº¯t buá»™c');
+        setError('Tên và slug là bắt buộc');
         setLoading(false);
         return;
       }
 
-      // Validate SKU khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng
+      // Validate SKU không được để trống
       if (!form.sku.trim()) {
-        setError('SKU khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng');
+        setError('SKU không được để trống');
         setLoading(false);
         return;
       }
 
-      // Validate slug khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng
+      // Validate slug không được để trống
       if (!form.slug.trim()) {
-        setError('Slug khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng');
+        setError('Slug không được để trống');
         setLoading(false);
         return;
       }
 
-      // Náº¿u cÃ³ file áº£nh má»›i, upload áº£nh trÆ°á»›c
+      // Nếu có file ảnh mới, upload ảnh trước
       let imageUrl = form.product_img;
       
       if (selectedFile) {
-        // Upload file thá»±c táº¿ lÃªn server
+        // Upload file thực tế lên server
         const uploadResult = await AdminService.uploadImage(selectedFile);
         imageUrl = uploadResult.url;
         
-        // KhÃ´ng cáº§n thÃªm http://localhost:3000 vÃ¬ backend Ä‘Ã£ thÃªm rá»“i
-        // Cáº­p nháº­t state Ä‘á»ƒ hiá»ƒn thá»‹ preview
+        // Không cần thêm http://localhost:3000 vì backend đã thêm rồi
+        // Cập nhật state để hiển thị preview
         setForm(prev => ({
           ...prev,
           product_img: imageUrl
         }));
       } else if (!form.product_img.trim()) {
-        // Náº¿u khÃ´ng cÃ³ file vÃ  khÃ´ng cÃ³ URL
-        setError('Vui lÃ²ng chá»n áº£nh hoáº·c nháº­p URL áº£nh');
+        // Nếu không có file và không có URL
+        setError('Vui lòng chọn ảnh hoặc nhập URL ảnh');
         setLoading(false);
         return;
       }
 
-      // Táº¡o sáº£n pháº©m trÆ°á»›c
+      // Tạo sản phẩm trước
       const res = await AdminService.createProduct({
         name: form.name.trim(),
         slug: form.slug.trim(),
@@ -335,25 +335,25 @@ const AdminProductCreate: React.FC = () => {
         is_active: form.is_active,
       });
       
-      // Sau khi táº¡o sáº£n pháº©m thÃ nh cÃ´ng, thÃªm áº£nh con
+      // Sau khi tạo sản phẩm thành công, thêm ảnh con
       if (res.success && productImages.length > 0) {
         for (const image of productImages) {
           try {
             if (image.file) {
-              // Upload file thá»±c táº¿ lÃªn server
+              // Upload file thực tế lên server
               const uploadResult = await AdminService.uploadImage(image.file);
               
-              // KhÃ´ng cáº§n thÃªm http://localhost:3000 vÃ¬ backend Ä‘Ã£ thÃªm rá»“i
+              // Không cần thêm http://localhost:3000 vì backend đã thêm rồi
               let imageUrl = uploadResult.url;
               
-              // Táº¡o áº£nh con vá»›i URL Ä‘Ã£ upload
+              // Tạo ảnh con với URL đã upload
               await AdminService.createProductImage(res.id, {
                 url: imageUrl,
                 is_primary: image.is_primary,
                 sort_order: image.sort_order
               });
             } else {
-              // Sá»­ dá»¥ng URL
+              // Sử dụng URL
               await AdminService.createProductImage(res.id, {
                 url: image.url,
                 is_primary: image.is_primary,
@@ -362,12 +362,12 @@ const AdminProductCreate: React.FC = () => {
             }
           } catch (e: any) {
             console.error('Error adding product image:', e);
-            // Tiáº¿p tá»¥c vá»›i áº£nh tiáº¿p theo náº¿u cÃ³ lá»—i
+            // Tiếp tục với ảnh tiếp theo nếu có lỗi
           }
         }
       }
       
-      setMessage(`Táº¡o sáº£n pháº©m thÃ nh cÃ´ng. ID: ${res.id}`);
+      setMessage(`Tạo sản phẩm thành công. ID: ${res.id}`);
       
       // Reset form
       setForm({
@@ -392,17 +392,17 @@ const AdminProductCreate: React.FC = () => {
       });
       
     } catch (err: any) {
-      // Xá»­ lÃ½ lá»—i cá»¥ thá»ƒ
+      // Xử lý lỗi cụ thể
       if (err.message && err.message.includes('Duplicate entry')) {
         if (err.message.includes('sku')) {
-          setError('SKU Ä‘Ã£ tá»“n táº¡i, vui lÃ²ng chá»n SKU khÃ¡c');
+          setError('SKU đã tồn tại, vui lòng chọn SKU khác');
         } else if (err.message.includes('slug')) {
-          setError('Slug Ä‘Ã£ tá»“n táº¡i, vui lÃ²ng chá»n tÃªn khÃ¡c');
+          setError('Slug đã tồn tại, vui lòng chọn tên khác');
         } else {
-          setError('Dá»¯ liá»‡u Ä‘Ã£ tá»“n táº¡i, vui lÃ²ng kiá»ƒm tra láº¡i');
+          setError('Dữ liệu đã tồn tại, vui lòng kiểm tra lại');
         }
       } else {
-        setError(err.message || 'Táº¡o sáº£n pháº©m tháº¥t báº¡i');
+        setError(err.message || 'Tạo sản phẩm thất bại');
       }
     } finally {
       setLoading(false);
@@ -411,35 +411,35 @@ const AdminProductCreate: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Táº¡o sáº£n pháº©m má»›i</h1>
+      <h1 className="text-2xl font-bold mb-6">Tạo sản phẩm mới</h1>
 
       {message && (
         <div className="mb-4 p-4 rounded-lg bg-green-50 text-green-700 border border-green-200">
-          âœ… {message}
+          ✅ {message}
         </div>
       )}
       {error && (
         <div className="mb-4 p-4 rounded-lg bg-red-50 text-red-700 border border-red-200">
-          âŒ {error}
+          ❌ {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* ThÃ´ng tin cÆ¡ báº£n */}
+        {/* Thông tin cơ bản */}
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">ThÃ´ng tin cÆ¡ báº£n</h2>
+          <h2 className="text-lg font-semibold mb-4">Thông tin cơ bản</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">
-                TÃªn sáº£n pháº©m <span className="text-red-500">*</span>
+                Tên sản phẩm <span className="text-red-500">*</span>
               </label>
               <input
                 name="name"
                 value={form.name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Nháº­p tÃªn sáº£n pháº©m"
+                placeholder="Nhập tên sản phẩm"
                 required
               />
             </div>
@@ -457,7 +457,7 @@ const AdminProductCreate: React.FC = () => {
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                URL-friendly version, tá»± Ä‘á»™ng táº¡o tá»« tÃªn
+                URL-friendly version, tự động tạo từ tên
               </p>
             </div>
           </div>
@@ -472,46 +472,46 @@ const AdminProductCreate: React.FC = () => {
                 value={form.sku}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="MÃ£ sáº£n pháº©m duy nháº¥t"
+                placeholder="Mã sản phẩm duy nhất"
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                MÃ£ sáº£n pháº©m pháº£i lÃ  duy nháº¥t. VÃ­ dá»¥: IPHONE15-128GB-BLACK
+                Mã sản phẩm phải là duy nhất. Ví dụ: IPHONE15-128GB-BLACK
               </p>
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-1">ThÆ°Æ¡ng hiá»‡u</label>
+              <label className="block text-sm font-medium mb-1">Thương hiệu</label>
               <input
                 name="brand"
                 value={form.brand}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="TÃªn thÆ°Æ¡ng hiá»‡u"
+                placeholder="Tên thương hiệu"
               />
             </div>
           </div>
 
           <div className="mt-4">
-            <label className="block text-sm font-medium mb-1">MÃ´ táº£</label>
+            <label className="block text-sm font-medium mb-1">Mô tả</label>
             <textarea
               name="description"
               value={form.description}
               onChange={handleChange}
               className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               rows={4}
-              placeholder="MÃ´ táº£ chi tiáº¿t sáº£n pháº©m"
+              placeholder="Mô tả chi tiết sản phẩm"
             />
           </div>
         </div>
 
-        {/* Upload áº£nh */}
+        {/* Upload ảnh */}
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">áº¢nh sáº£n pháº©m</h2>
+          <h2 className="text-lg font-semibold mb-4">Ảnh sản phẩm</h2>
           
-          {/* Tab buttons Ä‘á»ƒ chá»n phÆ°Æ¡ng thá»©c */}
+          {/* Tab buttons để chọn phương thức */}
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Chá»n phÆ°Æ¡ng thá»©c:</label>
+            <label className="block text-sm font-medium mb-2">Chọn phương thức:</label>
             
             {/* Tab buttons */}
             <div className="flex space-x-1 mb-4">
@@ -522,7 +522,7 @@ const AdminProductCreate: React.FC = () => {
                   imageMode === 'url' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                 }`}
               >
-                ðŸ“ Nháº­p URL
+                🔗 Nhập URL
               </button>
               <button
                 type="button"
@@ -531,15 +531,15 @@ const AdminProductCreate: React.FC = () => {
                   imageMode === 'file' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                 }`}
               >
-                ðŸ“ Upload File
+                📁 Upload File
               </button>
             </div>
           </div>
 
-          {/* PhÆ°Æ¡ng thá»©c nháº­p URL */}
+          {/* Phương thức nhập URL */}
           {imageMode === 'url' && (
             <div className="mb-6">
-              <label className="block text-sm font-medium mb-2">Nháº­p URL áº£nh:</label>
+              <label className="block text-sm font-medium mb-2">Nhập URL ảnh:</label>
               <input
                 type="url"
                 name="product_img"
@@ -549,15 +549,15 @@ const AdminProductCreate: React.FC = () => {
                 placeholder="https://example.com/image.jpg"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Nháº­p Ä‘Æ°á»ng dáº«n áº£nh tá»« internet
+                Nhập đường dẫn ảnh từ internet
               </p>
             </div>
           )}
 
-          {/* PhÆ°Æ¡ng thá»©c upload file */}
+          {/* Phương thức upload file */}
           {imageMode === 'file' && (
             <div className="mb-6">
-              <label className="block text-sm font-medium mb-3">Upload áº£nh tá»« file:</label>
+              <label className="block text-sm font-medium mb-3">Upload ảnh từ file:</label>
               
               {/* Drag & Drop Zone */}
               <div
@@ -577,7 +577,7 @@ const AdminProductCreate: React.FC = () => {
                   </svg>
                   <div className="text-sm text-gray-600">
                     <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                      <span>Chá»n áº£nh</span>
+                      <span>Chọn ảnh</span>
                       <input 
                         id="file-upload" 
                         name="file-upload" 
@@ -587,27 +587,27 @@ const AdminProductCreate: React.FC = () => {
                         onChange={handleFileInput}
                       />
                     </label>
-                    <span className="text-gray-500"> hoáº·c kÃ©o tháº£ áº£nh vÃ o Ä‘Ã¢y</span>
+                    <span className="text-gray-500"> hoặc kéo thả ảnh vào đây</span>
                   </div>
                   <p className="text-xs text-gray-500">
-                    PNG, JPG, GIF tá»‘i Ä‘a 10MB
+                    PNG, JPG, GIF tối đa 10MB
                   </p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Preview áº£nh Ä‘Ã£ chá»n */}
+          {/* Preview ảnh đã chọn */}
           {(form.product_img || selectedFile) && (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium">áº¢nh Ä‘Ã£ chá»n:</span>
+                <span className="text-sm font-medium">Ảnh đã chọn:</span>
                 <button
                   type="button"
                   onClick={removeSelectedFile}
                   className="text-sm text-red-600 hover:text-red-800"
                 >
-                  ðŸ—‘ï¸ XÃ³a áº£nh
+                  🗑️ Xóa ảnh
                 </button>
               </div>
               <div className="relative">
@@ -621,47 +621,47 @@ const AdminProductCreate: React.FC = () => {
                 />
                 {selectedFile && (
                   <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                    File má»›i
+                    File mới
                   </div>
                 )}
               </div>
               {selectedFile && (
                 <p className="text-xs text-green-600 mt-2">
-                  ðŸ“ {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                  📁 {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
                 </p>
               )}
             </div>
           )}
 
-          {/* Alt text vÃ  Title cho áº£nh */}
+          {/* Alt text và Title cho ảnh */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Alt text cho áº£nh</label>
+              <label className="block text-sm font-medium mb-1">Alt text cho ảnh</label>
               <input
                 type="text"
                 name="product_img_alt"
                 value={form.product_img_alt}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="MÃ´ táº£ áº£nh cho SEO"
+                placeholder="Mô tả ảnh cho SEO"
               />
               <p className="text-xs text-gray-500 mt-1">
-                MÃ´ táº£ áº£nh cho ngÆ°á»i dÃ¹ng khiáº¿m thá»‹ vÃ  SEO
+                Mô tả ảnh cho người dùng khiếm thị và SEO
               </p>
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-1">Title cho áº£nh</label>
+              <label className="block text-sm font-medium mb-1">Title cho ảnh</label>
               <input
                 type="text"
                 name="product_img_title"
                 value={form.product_img_title}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Tooltip khi hover áº£nh"
+                placeholder="Tooltip khi hover ảnh"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Tooltip hiá»ƒn thá»‹ khi hover chuá»™t vÃ o áº£nh
+                Tooltip hiển thị khi hover chuột vào ảnh
               </p>
             </div>
           </div>
@@ -677,25 +677,25 @@ const AdminProductCreate: React.FC = () => {
               className="mr-2 rounded focus:ring-2 focus:ring-blue-500"
             />
             <label htmlFor="has_images" className="text-sm font-medium">
-              Sáº£n pháº©m cÃ³ áº£nh
+              Sản phẩm có ảnh
             </label>
             <p className="text-xs text-gray-500 ml-2">
-              ÄÃ¡nh dáº¥u náº¿u sáº£n pháº©m cÃ³ áº£nh Ä‘á»ƒ hiá»ƒn thá»‹
+              Đánh dấu nếu sản phẩm có ảnh để hiển thị
             </p>
           </div>
         </div>
 
-        {/* Quáº£n lÃ½ áº£nh con */}
+        {/* Quản lý ảnh con */}
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Quáº£n lÃ½ áº£nh con (Gallery)</h2>
+          <h2 className="text-lg font-semibold mb-4">Quản lý ảnh con (Gallery)</h2>
           
-          {/* Form thÃªm áº£nh con má»›i */}
+          {/* Form thêm ảnh con mới */}
           <div className="bg-gray-50 p-4 rounded-lg mb-6">
-            <h3 className="font-medium mb-3">ThÃªm áº£nh con má»›i</h3>
+            <h3 className="font-medium mb-3">Thêm ảnh con mới</h3>
             
-            {/* Upload file hoáº·c nháº­p URL */}
+            {/* Upload file hoặc nhập URL */}
             <div className="mb-3">
-              <label className="block text-sm font-medium mb-2">Chá»n phÆ°Æ¡ng thá»©c:</label>
+              <label className="block text-sm font-medium mb-2">Chọn phương thức:</label>
               
               {/* Tab buttons */}
               <div className="flex space-x-1 mb-3">
@@ -706,7 +706,7 @@ const AdminProductCreate: React.FC = () => {
                     imageMode === 'url' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                   }`}
                 >
-                  ðŸ“ Nháº­p URL
+                  🔗 Nhập URL
                 </button>
                 <button
                   type="button"
@@ -715,7 +715,7 @@ const AdminProductCreate: React.FC = () => {
                     imageMode === 'file' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                   }`}
                 >
-                  ðŸ“ Upload File
+                  📁 Upload File
                 </button>
               </div>
               
@@ -750,7 +750,7 @@ const AdminProductCreate: React.FC = () => {
                       </svg>
                       <div className="text-sm text-gray-600">
                         <label htmlFor="image-file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                          <span>Chá»n áº£nh</span>
+                          <span>Chọn ảnh</span>
                           <input 
                             id="image-file-upload" 
                             name="image-file-upload" 
@@ -760,10 +760,10 @@ const AdminProductCreate: React.FC = () => {
                             onChange={handleImageFileInput}
                           />
                         </label>
-                        <span className="text-gray-500"> hoáº·c kÃ©o tháº£ áº£nh vÃ o Ä‘Ã¢y</span>
+                        <span className="text-gray-500"> hoặc kéo thả ảnh vào đây</span>
                       </div>
                       <p className="text-xs text-gray-500">
-                        PNG, JPG, GIF tá»‘i Ä‘a 10MB
+                        PNG, JPG, GIF tối đa 10MB
                       </p>
                     </div>
                   </div>
@@ -772,13 +772,13 @@ const AdminProductCreate: React.FC = () => {
                   {newImage.file && (
                     <div className="mt-3">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">File Ä‘Ã£ chá»n:</span>
+                        <span className="text-sm font-medium">File đã chọn:</span>
                         <button
                           type="button"
                           onClick={removeImageFile}
                           className="text-sm text-red-600 hover:text-red-800"
                         >
-                          ðŸ—‘ï¸ XÃ³a file
+                          🗑️ Xóa file
                         </button>
                       </div>
                       <div className="flex items-center space-x-3">
@@ -804,7 +804,7 @@ const AdminProductCreate: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
               <div>
-                <label className="block text-sm font-medium mb-1">Thá»© tá»±</label>
+                <label className="block text-sm font-medium mb-1">Thứ tự</label>
                 <input
                   type="number"
                   value={newImage.sort_order}
@@ -824,7 +824,7 @@ const AdminProductCreate: React.FC = () => {
                   className="mr-2 rounded focus:ring-2 focus:ring-blue-500"
                 />
                 <label htmlFor="is_primary" className="text-sm font-medium">
-                  áº¢nh chÃ­nh
+                  Ảnh chính
                 </label>
               </div>
             </div>
@@ -835,21 +835,21 @@ const AdminProductCreate: React.FC = () => {
               disabled={(imageMode === 'url' && !newImage.url.trim()) || (imageMode === 'file' && !newImage.file)}
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              âž• ThÃªm áº£nh con
+              ➕ Thêm ảnh con
             </button>
           </div>
           
-          {/* Danh sÃ¡ch áº£nh con Ä‘Ã£ thÃªm */}
+          {/* Danh sách ảnh con đã thêm */}
           <div>
-            <h3 className="font-medium mb-3">áº¢nh con Ä‘Ã£ thÃªm ({productImages.length})</h3>
+            <h3 className="font-medium mb-3">Ảnh con đã thêm ({productImages.length})</h3>
             
             {productImages.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <svg className="mx-auto h-12 w-12 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <p>ChÆ°a cÃ³ áº£nh con nÃ o</p>
-                <p className="text-sm">ThÃªm áº£nh con Ä‘á»ƒ táº¡o gallery cho sáº£n pháº©m</p>
+                <p>Chưa có ảnh con nào</p>
+                <p className="text-sm">Thêm ảnh con để tạo gallery cho sản phẩm</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -876,7 +876,7 @@ const AdminProductCreate: React.FC = () => {
                               : 'bg-blue-600 text-white'
                           }`}
                         >
-                          {image.is_primary ? 'â­ ChÃ­nh' : 'â­ Äáº·t chÃ­nh'}
+                          {image.is_primary ? '⭐ Chính' : '⭐ Đặt chính'}
                         </button>
                         
                         <button
@@ -884,21 +884,21 @@ const AdminProductCreate: React.FC = () => {
                           onClick={() => removeProductImage(index)}
                           className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
                         >
-                          ðŸ—‘ï¸ XÃ³a
+                          🗑️ Xóa
                         </button>
                       </div>
                     </div>
                     
-                    {/* Badge cho áº£nh chÃ­nh */}
+                    {/* Badge cho ảnh chính */}
                     {image.is_primary && (
                       <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">
-                        â­ ChÃ­nh
+                        ⭐ Chính
                       </div>
                     )}
                     
-                    {/* ThÃ´ng tin áº£nh */}
+                    {/* Thông tin ảnh */}
                     <div className="mt-2 text-xs text-gray-600">
-                      <div>Thá»© tá»±: {image.sort_order}</div>
+                      <div>Thứ tự: {image.sort_order}</div>
                       <div className="truncate" title={image.url}>
                         {image.url.length > 30 ? image.url.substring(0, 30) + '...' : image.url}
                       </div>
@@ -910,20 +910,20 @@ const AdminProductCreate: React.FC = () => {
           </div>
         </div>
 
-        {/* CÃ i Ä‘áº·t khÃ¡c */}
+        {/* Cài đặt khác */}
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">CÃ i Ä‘áº·t khÃ¡c</h2>
+          <h2 className="text-lg font-semibold mb-4">Cài đặt khác</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Danh má»¥c</label>
+              <label className="block text-sm font-medium mb-1">Danh mục</label>
               <select
                 name="category_id"
                 value={form.category_id || ''}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="">Chá»n danh má»¥c</option>
+                <option value="">Chọn danh mục</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
@@ -942,7 +942,7 @@ const AdminProductCreate: React.FC = () => {
                 className="mr-2 rounded focus:ring-2 focus:ring-blue-500"
               />
               <label htmlFor="is_active" className="text-sm font-medium">
-                KÃ­ch hoáº¡t sáº£n pháº©m
+                Kích hoạt sản phẩm
               </label>
             </div>
           </div>
@@ -955,14 +955,14 @@ const AdminProductCreate: React.FC = () => {
             onClick={() => window.history.back()}
             className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
           >
-            Há»§y
+            Hủy
           </button>
           <button
             type="submit"
             disabled={loading}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
           >
-            {loading ? 'ðŸ”„ Äang táº¡o...' : 'âž• Táº¡o sáº£n pháº©m'}
+            {loading ? '⏳ Đang tạo...' : '✅ Tạo sản phẩm'}
           </button>
         </div>
       </form>
