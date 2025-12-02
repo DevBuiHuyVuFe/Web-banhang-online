@@ -15,6 +15,20 @@ const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 app.use(express.json());
 
+// Helper: build absolute URL cho các đường dẫn ảnh (tránh hard-code localhost)
+function buildFullUrl(req, url) {
+  if (!url) return null;
+  const str = String(url);
+  if (str.startsWith('http')) return str;
+
+  // Ưu tiên PUBLIC_BASE_URL nếu có (dùng cho deploy)
+  const origin =
+    process.env.PUBLIC_BASE_URL ||
+    `${req.protocol}://${req.get('host')}`;
+
+  return origin + (str.startsWith('/') ? str : `/${str}`);
+}
+
 // method override via _method in body
 app.use((req, res, next) => {
   console.log('Method override middleware:', {
@@ -814,11 +828,7 @@ app.get('/api/products', async (req, res) => {
     // Thêm đường dẫn đầy đủ cho ảnh và xử lý giá
     const productsWithFullImageUrl = rows.map(product => ({
       ...product,
-      product_img: product.product_img
-        ? (String(product.product_img).startsWith('http')
-            ? product.product_img
-            : `http://localhost:3000${product.product_img}`)
-        : null,
+      product_img: buildFullUrl(req, product.product_img),
       // Xử lý giá: nếu có variant thì lấy giá, không thì để null
       price: product.min_price ? {
         min: product.min_price,
@@ -857,11 +867,7 @@ app.get('/api/products/:id', async (req, res) => {
     // Thêm đường dẫn đầy đủ cho ảnh
     const productWithFullImageUrl = {
       ...product,
-      product_img: product.product_img
-        ? (String(product.product_img).startsWith('http')
-            ? product.product_img
-            : `http://localhost:3000${product.product_img}`)
-        : null
+      product_img: buildFullUrl(req, product.product_img)
     };
 
     const [variants] = await pool.query(
@@ -879,9 +885,7 @@ app.get('/api/products/:id', async (req, res) => {
     // Thêm đường dẫn đầy đủ cho ảnh con
     const imagesWithFullUrl = images.map(image => ({
       ...image,
-      url: image.url
-        ? (String(image.url).startsWith('http') ? image.url : `http://localhost:3000${image.url}`)
-        : null
+      url: buildFullUrl(req, image.url)
     }));
 
     res.json({ product: productWithFullImageUrl, variants, images: imagesWithFullUrl });
@@ -908,7 +912,7 @@ app.get('/api/product-variants', async (req, res) => {
     // Thêm đường dẫn đầy đủ cho ảnh
     const variantsWithFullImageUrl = rows.map(variant => ({
       ...variant,
-      product_img: variant.product_img ? `http://localhost:3000${variant.product_img}` : null
+      product_img: buildFullUrl(req, variant.product_img)
     }));
 
     res.json({ data: variantsWithFullImageUrl });
@@ -1552,9 +1556,7 @@ app.get('/api/reviews', async (req, res) => {
 
     // Chuẩn hoá dữ liệu để tương thích frontend cũ
     const data = rows.map((r) => {
-      const imageUrl = r.product_image_url
-        ? (String(r.product_image_url).startsWith('http') ? r.product_image_url : `http://localhost:3000${r.product_image_url}`)
-        : null;
+      const imageUrl = buildFullUrl(req, r.product_image_url);
       return {
         ...r,
         // Thêm cấu trúc lồng user/product cho UI cũ
@@ -2452,9 +2454,7 @@ app.get('/api/orders/:id/items-with-details', async (req, res) => {
     // Chuẩn hoá ảnh sản phẩm nếu là relative
     const normalized = rows.map((r) => ({
       ...r,
-      product_image: r.product_image
-        ? (String(r.product_image).startsWith('http') ? r.product_image : `http://localhost:3000${r.product_image}`)
-        : null
+      product_image: buildFullUrl(req, r.product_image)
     }));
 
     res.json({ data: normalized });

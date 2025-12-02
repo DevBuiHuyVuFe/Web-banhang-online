@@ -53,24 +53,31 @@ const Home: React.FC = () => {
     { name: 'Tất cả', icon: <HomeIcon className="w-5 h-5" />, link: '/products' },
   ];
 
-  const formatPrice = (price: number) => {
-    return price.toLocaleString('vi-VN') + '';
+  const formatPrice = (amount: number) => {
+    if (!amount) return '';
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+      maximumFractionDigits: 0,
+    }).format(Number(amount));
   };
 
   const getProductImage = (product: Product) => {
-    return product.product_img || '/placeholder.jpg';
+    // Ảnh đã được backend trả về full URL; nếu không có ảnh thì dùng logo mặc định
+    // Lưu ý: '/vite.svg' luôn tồn tại trong thư mục public nên sẽ không bị lỗi 404
+    return product.product_img || '/vite.svg';
   };
 
   const getProductPrice = (product: Product) => {
-    if (product.price) {
-      return product.price.min;
+    if (product.price && product.price.min != null) {
+      return Number(product.price.min);
     }
     return 0;
   };
 
   const getOriginalPrice = (product: Product) => {
-    if (product.price?.compare_min) {
-      return product.price.compare_min;
+    if (product.price?.compare_min != null) {
+      return Number(product.price.compare_min);
     }
     return null;
   };
@@ -128,11 +135,16 @@ const Home: React.FC = () => {
               {featuredProducts.map((product) => (
                 <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                   <Link to={`/products/${product.id}`}>
-                    <div className="aspect-w-16 aspect-h-12">
+                    <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
                       <img
                         src={getProductImage(product)}
                         alt={product.name}
-                        className="w-full h-48 object-cover"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          if (img.src.endsWith('/vite.svg')) return; // tránh loop vô hạn
+                          img.src = '/vite.svg';
+                        }}
                       />
                     </div>
                     <div className="p-4">
@@ -178,11 +190,16 @@ const Home: React.FC = () => {
               {newProducts.map((product) => (
                 <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                   <Link to={`/products/${product.id}`}>
-                    <div className="aspect-w-16 aspect-h-12">
+                    <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
                       <img
                         src={getProductImage(product)}
                         alt={product.name}
-                        className="w-full h-48 object-cover"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          if (img.src.endsWith('/vite.svg')) return;
+                          img.src = '/vite.svg';
+                        }}
                       />
                     </div>
                     <div className="p-4">
@@ -228,11 +245,16 @@ const Home: React.FC = () => {
               {topRatedProducts.map((product) => (
                 <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                   <Link to={`/products/${product.id}`}>
-                    <div className="aspect-w-16 aspect-h-12">
+                    <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
                       <img
                         src={getProductImage(product)}
                         alt={product.name}
-                        className="w-full h-48 object-cover"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          if (img.src.endsWith('/vite.svg')) return;
+                          img.src = '/vite.svg';
+                        }}
                       />
                     </div>
                     <div className="p-4">
