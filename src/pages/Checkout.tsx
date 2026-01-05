@@ -1,9 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartService } from '../assets/api/cartService';
 import { AuthService } from '../assets/api/authService';
 import { OrderService } from '../assets/api/orderService';
-import type { CartItem, Product, ProductVariant } from '../assets/api/types';
+import { PaymentService } from '../assets/api/paymentService';
+import { AddressService } from '../assets/api/addressService';
+import type { CartItem } from '../assets/api/types';
+import { UserIcon, VoucherIcon, MoneyIcon, SearchIcon, ListIcon, CelebrationIcon, WarningIcon, TargetIcon, BoxIcon, SettingsIcon, CheckIcon, XIcon, RocketIcon } from '../components/Icons';
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
+type PlaceOption = { code: number; name: string };
+
+function normalizePlace(s: string) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function stripPlacePrefix(name: string) {
+  const s = String(name || '').trim();
+  // Tỉnh/Thành phố
+  if (s.startsWith('Thành phố ')) return s.slice('Thành phố '.length).trim();
+  if (s.startsWith('Tỉnh ')) return s.slice('Tỉnh '.length).trim();
+  // Quận/Huyện/Thị xã/Thành phố thuộc tỉnh
+  if (s.startsWith('Quận ')) return s.slice('Quận '.length).trim();
+  if (s.startsWith('Huyện ')) return s.slice('Huyện '.length).trim();
+  if (s.startsWith('Thị xã ')) return s.slice('Thị xã '.length).trim();
+  if (s.startsWith('Thành phố ')) return s.slice('Thành phố '.length).trim();
+  // Phường/Xã/Thị trấn
+  if (s.startsWith('Phường ')) return s.slice('Phường '.length).trim();
+  if (s.startsWith('Xã ')) return s.slice('Xã '.length).trim();
+  if (s.startsWith('Thị trấn ')) return s.slice('Thị trấn '.length).trim();
+  return s;
+}
+
+function findPlaceByName(list: PlaceOption[], name: string) {
+  const target = normalizePlace(name);
+  if (!target) return null;
+  return (
+    list.find((x) => normalizePlace(x.name) === target) ||
+    list.find((x) => normalizePlace(stripPlacePrefix(x.name)) === target) ||
+    null
+  );
+}
 
 interface CheckoutForm {
   fullName: string;
@@ -57,6 +104,17 @@ const Checkout: React.FC = () => {
   const [selectedVoucher, setSelectedVoucher] = useState<UserVoucher | null>(null);
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherLoading, setVoucherLoading] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(true);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<any>(null);
+
+  // Gợi ý địa điểm (VN): Tỉnh/TP -> Quận/Huyện -> Phường/Xã
+  const [provinces, setProvinces] = useState<PlaceOption[]>([]);
+  const [districts, setDistricts] = useState<PlaceOption[]>([]);
+  const [wards, setWards] = useState<PlaceOption[]>([]);
+  const [provinceCode, setProvinceCode] = useState<number | null>(null);
+  const [districtCode, setDistrictCode] = useState<number | null>(null);
+  const [placesLoading, setPlacesLoading] = useState(false);
   const [form, setForm] = useState<CheckoutForm>({
     fullName: '',
     email: '',
@@ -71,6 +129,202 @@ const Checkout: React.FC = () => {
 
   const navigate = useNavigate();
 
+  // Load danh sách Tỉnh/Thành phố để gợi ý
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setPlacesLoading(true);
+        const res = await fetch('https://provinces.open-api.vn/api/p/');
+        const data = await res.json();
+        const list: PlaceOption[] = Array.isArray(data)
+          ? data
+              .filter((x: any) => x && typeof x.code === 'number' && typeof x.name === 'string')
+              .map((x: any) => ({ code: x.code, name: x.name }))
+          : [];
+        if (!cancelled) setProvinces(list);
+      } catch (e) {
+        console.log('Load provinces failed (ignore):', e);
+      } finally {
+        if (!cancelled) setPlacesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Nếu user đã có city (từ địa chỉ mặc định), map sang provinceCode để load district gợi ý
+  useEffect(() => {
+    if (!provinces.length) return;
+    if (provinceCode) return;
+    if (!form.city) return;
+    const match = findPlaceByName(provinces, form.city);
+    if (match) setProvinceCode(match.code);
+  }, [provinces, form.city, provinceCode]);
+
+  // Load Quận/Huyện theo provinceCode
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!provinceCode) {
+        setDistricts([]);
+        setDistrictCode(null);
+        setWards([]);
+        return;
+      }
+      try {
+        setPlacesLoading(true);
+        const res = await fetch(`https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`);
+        const data = await res.json();
+        const list: PlaceOption[] = Array.isArray(data?.districts)
+          ? data.districts
+              .filter((x: any) => x && typeof x.code === 'number' && typeof x.name === 'string')
+              .map((x: any) => ({ code: x.code, name: x.name }))
+          : [];
+        if (cancelled) return;
+        setDistricts(list);
+        setWards([]);
+
+        // Nếu đã có district text, map sang districtCode để load ward gợi ý
+        const matchDistrict = findPlaceByName(list, form.district);
+        if (matchDistrict) setDistrictCode(matchDistrict.code);
+      } catch (e) {
+        console.log('Load districts failed (ignore):', e);
+      } finally {
+        if (!cancelled) setPlacesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [provinceCode, form.district]);
+
+  // Load Phường/Xã theo districtCode
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!districtCode) {
+        setWards([]);
+        return;
+      }
+      try {
+        setPlacesLoading(true);
+        const res = await fetch(`https://provinces.open-api.vn/api/d/${districtCode}?depth=2`);
+        const data = await res.json();
+        const list: PlaceOption[] = Array.isArray(data?.wards)
+          ? data.wards
+              .filter((x: any) => x && typeof x.code === 'number' && typeof x.name === 'string')
+              .map((x: any) => ({ code: x.code, name: x.name }))
+          : [];
+        if (cancelled) return;
+        setWards(list);
+      } catch (e) {
+        console.log('Load wards failed (ignore):', e);
+      } finally {
+        if (!cancelled) setPlacesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [districtCode]);
+
+  // Khởi tạo Google Places Autocomplete cho trường địa chỉ
+  useEffect(() => {
+    if (!addressInputRef.current || !window.google) return;
+
+    const input = addressInputRef.current;
+
+    // Tạo Autocomplete với giới hạn kết quả cho Việt Nam
+    const autocomplete = new window.google.maps.places.Autocomplete(
+      input,
+      {
+        componentRestrictions: { country: 'vn' },
+        fields: ['address_components', 'formatted_address', 'place_id'],
+        types: ['address']
+      }
+    );
+
+    autocompleteRef.current = autocomplete;
+
+    // Xử lý khi chọn địa chỉ từ danh sách gợi ý
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      
+      // Chỉ xử lý nếu có place_id (nghĩa là đã chọn một địa chỉ hợp lệ từ danh sách)
+      if (!place.place_id || !place.address_components) {
+        return;
+      }
+
+      let streetNumber = '';
+      let route = '';
+      let ward = '';
+      let district = '';
+      let city = '';
+
+      // Parse address components
+      place.address_components.forEach((component: any) => {
+        const types = component.types;
+
+        if (types.includes('street_number')) {
+          streetNumber = component.long_name;
+        }
+        if (types.includes('route')) {
+          route = component.long_name;
+        }
+        if (types.includes('sublocality_level_1') || types.includes('ward')) {
+          ward = component.long_name;
+        }
+        if (types.includes('sublocality_level_2') || types.includes('administrative_area_level_3')) {
+          if (!ward) {
+            ward = component.long_name;
+          }
+        }
+        if (types.includes('administrative_area_level_2') || types.includes('district')) {
+          district = component.long_name;
+        }
+        if (types.includes('administrative_area_level_1') || types.includes('province')) {
+          city = component.long_name;
+        }
+      });
+
+      // Tạo địa chỉ đầy đủ
+      const fullAddress = [streetNumber, route].filter(Boolean).join(' ') || place.formatted_address;
+
+      // Cập nhật form - chỉ điền các trường còn trống, không override nếu đã có giá trị
+      setForm(prev => ({
+        ...prev,
+        address: fullAddress,
+        ward: prev.ward || ward,
+        district: prev.district || district,
+        city: prev.city || city
+      }));
+
+      // Nếu có city, tìm và set provinceCode để load districts
+      if (city && provinces.length > 0) {
+        const match = findPlaceByName(provinces, city);
+        if (match) {
+          setProvinceCode(match.code);
+        }
+      }
+
+      // Nếu có district, tìm và set districtCode để load wards
+      if (district && districts.length > 0) {
+        const match = findPlaceByName(districts, district);
+        if (match) {
+          setDistrictCode(match.code);
+        }
+      }
+    });
+
+    return () => {
+      if (autocompleteRef.current) {
+        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
+    };
+  }, [provinces, districts]);
+
   useEffect(() => {
     loadCart();
     
@@ -80,11 +334,30 @@ const Checkout: React.FC = () => {
       setForm(prev => ({
         ...prev,
         fullName: currentUser.full_name || '',
-        email: currentUser.email || ''
+        email: currentUser.email || '',
+        phone: currentUser.phone || prev.phone || ''
       }));
       // Load voucher từ API nếu user đã đăng nhập
       console.log('User logged in, calling loadUserVouchers...');
       loadUserVouchers();
+
+      // Load địa chỉ mặc định nếu có
+      (async () => {
+        try {
+          const addr = await AddressService.getDefaultAddress(currentUser.id);
+          if (!addr) return;
+          setForm(prev => ({
+            ...prev,
+            phone: prev.phone || addr.phone || currentUser.phone || '',
+            address: prev.address || addr.line1 || '',
+            ward: prev.ward || (addr.ward || ''),
+            district: prev.district || (addr.district || ''),
+            city: prev.city || (addr.city || ''),
+          }));
+        } catch (e) {
+          console.log('Load default address failed (ignore):', e);
+        }
+      })();
     } else {
       // Tạo voucher mẫu để test giao diện nếu user chưa đăng nhập
       console.log('User not logged in, creating sample vouchers for UI testing...');
@@ -163,7 +436,7 @@ const Checkout: React.FC = () => {
           
           if (validVouchers.length > 0) {
             setUserVouchers(validVouchers);
-            console.log('✅ Successfully loaded assigned vouchers from API');
+            console.log('Successfully loaded assigned vouchers from API');
             return;
           }
         }
@@ -178,7 +451,7 @@ const Checkout: React.FC = () => {
         await loadAllAvailableVouchers();
       }
     } catch (error) {
-      console.error('❌ Error loading vouchers:', error);
+      console.error('Error loading vouchers:', error);
       // Fallback về voucher mẫu
       console.log('Creating sample vouchers due to error...');
       createSampleVouchers();
@@ -219,7 +492,7 @@ const Checkout: React.FC = () => {
         
         if (availableVouchers.length > 0) {
           setUserVouchers(availableVouchers);
-          console.log('✅ Successfully loaded all available vouchers');
+          console.log('Successfully loaded all available vouchers');
         } else {
           console.log('No available vouchers found, creating sample vouchers...');
           createSampleVouchers();
@@ -231,70 +504,6 @@ const Checkout: React.FC = () => {
     } catch (error) {
       console.error('Error loading all vouchers:', error);
       createSampleVouchers();
-    }
-  };
-
-  // Test server status
-  const testServerStatus = async () => {
-    try {
-      console.log('🌐 Testing server status...');
-      const response = await fetch('http://localhost:3000/api/health', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🌐 Server is running:', data);
-        alert(`✅ Server đang chạy!\nStatus: ${response.status}`);
-      } else {
-        console.log('🌐 Server responded with error:', response.status);
-        alert(`⚠️ Server đang chạy nhưng có lỗi\nStatus: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('🌐 Server connection failed:', error);
-      alert(`❌ Không thể kết nối server!\nHãy kiểm tra xem server có đang chạy ở localhost:3000 không?\nError: ${error}`);
-    }
-  };
-
-  // Test API endpoint
-  const testAPIEndpoint = async () => {
-    const currentUser = AuthService.getUser();
-    if (!currentUser?.id) {
-      alert('Vui lòng đăng nhập để test API');
-      return;
-    }
-
-    try {
-      console.log('🧪 Testing API endpoint...');
-      const response = await fetch(`http://localhost:3000/api/user-vouchers/${currentUser.id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-      
-      console.log('🧪 API Test Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🧪 API Test Data:', data);
-        alert(`✅ API hoạt động!\nStatus: ${response.status}\nData: ${JSON.stringify(data, null, 2)}`);
-      } else {
-        const errorText = await response.text();
-        console.error('🧪 API Test Error:', errorText);
-        alert(`❌ API lỗi!\nStatus: ${response.status}\nError: ${errorText}`);
-      }
-    } catch (error) {
-      console.error('🧪 API Test Network Error:', error);
-      alert(`❌ Lỗi network!\nError: ${error}`);
     }
   };
 
@@ -380,9 +589,9 @@ const Checkout: React.FC = () => {
       setVoucherCode('');
       // Hiển thị thông báo thành công
       const discount = getVoucherDiscount();
-      alert(`✅ Áp dụng voucher thành công!\n\n🎫 ${voucher.voucher.name}\n💰 Tiết kiệm: ${formatCurrency(discount)}`);
+      alert(`Áp dụng voucher thành công!\n\n${voucher.voucher.name}\nTiết kiệm: ${formatCurrency(discount)}`);
     } else {
-      alert('❌ Mã voucher không hợp lệ hoặc đã được sử dụng');
+      alert('Mã voucher không hợp lệ hoặc đã được sử dụng');
     }
   };
 
@@ -391,7 +600,7 @@ const Checkout: React.FC = () => {
       const voucherName = selectedVoucher.voucher?.name || 'Voucher';
       if (confirm(`Bạn có chắc muốn bỏ chọn ${voucherName}?`)) {
         setSelectedVoucher(null);
-        alert('✅ Đã bỏ chọn voucher');
+        alert('Đã bỏ chọn voucher');
       }
     }
   };
@@ -419,6 +628,28 @@ const Checkout: React.FC = () => {
 
   const handleInputChange = (field: keyof CheckoutForm, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  // OnChange wrappers để map text -> code (để load gợi ý cấp tiếp theo)
+  const handleCityChange = (value: string) => {
+    handleInputChange('city', value);
+    const match = findPlaceByName(provinces, value);
+    if (match) {
+      setProvinceCode(match.code);
+      // reset cấp dưới nếu đổi tỉnh
+      if (form.district) handleInputChange('district', '');
+      if (form.ward) handleInputChange('ward', '');
+      setDistrictCode(null);
+    }
+  };
+
+  const handleDistrictChange = (value: string) => {
+    handleInputChange('district', value);
+    const match = findPlaceByName(districts, value);
+    if (match) {
+      setDistrictCode(match.code);
+      if (form.ward) handleInputChange('ward', '');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -470,11 +701,40 @@ const Checkout: React.FC = () => {
       const response = await OrderService.createOrder(orderData);
       
       if (response.success) {
+        // Lưu địa chỉ cho lần sau (chỉ khi user đã đăng nhập)
+        if (saveAddress && currentUser?.id) {
+          try {
+            await AddressService.saveDefaultAddress(currentUser.id, {
+              full_name: form.fullName,
+              phone: form.phone,
+              line1: form.address,
+              ward: form.ward || null,
+              district: form.district || null,
+              city: form.city || null,
+            });
+          } catch (e) {
+            console.log('Save address failed (ignore):', e);
+          }
+        }
+
+        // Nếu chọn MoMo: tạo giao dịch và redirect sang payUrl
+        if (form.paymentMethod === 'momo') {
+          const momo = await PaymentService.createMomoPayment(response.order.id);
+          const payUrl = momo?.payUrl;
+          if (!payUrl) {
+            alert('Không thể tạo thanh toán MoMo. Vui lòng thử lại.');
+            return;
+          }
+          // Không clear cart ngay để tránh mất giỏ nếu user hủy thanh toán.
+          window.location.assign(payUrl);
+          return;
+        }
+
         alert(`Đặt hàng thành công! Mã đơn hàng: ${response.order.code}`);
-        
-        // Xóa giỏ hàng
+
+        // Xóa giỏ hàng (COD/Bank transfer)
         await CartService.clearCart();
-        
+
         // Chuyển đến trang profile để xem đơn hàng
         navigate('/profile');
       } else {
@@ -541,7 +801,7 @@ const Checkout: React.FC = () => {
             {AuthService.getUser()?.id && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center text-blue-800">
-                  <span className="mr-2">👤</span>
+                  <UserIcon className="mr-2 w-5 h-5" />
                   <span className="text-sm">
                     Đang đặt hàng với tài khoản: <strong>{AuthService.getUser()?.email}</strong>
                   </span>
@@ -606,32 +866,30 @@ const Checkout: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Địa chỉ <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Số nhà, tên đường, phường/xã"
-                />
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Phường/Xã
+                    Tỉnh/Thành phố <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    value={form.ward}
-                    onChange={(e) => handleInputChange('ward', e.target.value)}
+                    required
+                    value={form.city}
+                    onChange={(e) => handleCityChange(e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Phường 1"
+                    placeholder="Thành phố Hà Nội"
+                    list="provinceList"
                   />
+                  <datalist id="provinceList">
+                    {provinces.map((p) => (
+                      <option key={p.code} value={stripPlacePrefix(p.name)} />
+                    ))}
+                  </datalist>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {placesLoading
+                      ? 'Đang tải gợi ý địa điểm...'
+                      : ''}
+                  </p>
                 </div>
                 
                 <div>
@@ -642,26 +900,103 @@ const Checkout: React.FC = () => {
                     type="text"
                     required
                     value={form.district}
-                    onChange={(e) => handleInputChange('district', e.target.value)}
+                    onChange={(e) => handleDistrictChange(e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Quận 1"
+                    placeholder="Quận Ba Đình"
+                    list="districtList"
+                    disabled={!provinceCode}
                   />
+                  <datalist id="districtList">
+                    {districts.map((d) => (
+                      <option key={d.code} value={stripPlacePrefix(d.name)} />
+                    ))}
+                  </datalist>
+                  {!provinceCode && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {/* Vui lòng chọn Tỉnh/Thành phố trước */}
+                    </p>
+                  )}
+                  {provinceCode && districts.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Chọn từ gợi ý để tự động load Phường/Xã
+                    </p>
+                  )}
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Tỉnh/Thành phố <span className="text-red-500">*</span>
+                    Phường/Xã
                   </label>
                   <input
                     type="text"
-                    required
-                    value={form.city}
-                    onChange={(e) => handleInputChange('city', e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="TP. Hồ Chí Minh"
+                    value={form.ward}
+                    onChange={(e) => handleInputChange('ward', e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder={districtCode ? "Phường 1" : "Chọn Quận/Huyện trước"}
+                    list={districtCode ? "wardList" : undefined}
+                    disabled={!districtCode}
                   />
+                  {districtCode && (
+                    <datalist id="wardList">
+                      {wards.length > 0 ? (
+                        <>
+                          {wards.map((w) => (
+                            <option key={w.code} value={w.name} />
+                          ))}
+                          {wards.map((w) => {
+                            const stripped = stripPlacePrefix(w.name);
+                            return stripped !== w.name ? (
+                              <option key={`${w.code}-stripped`} value={stripped} />
+                            ) : null;
+                          })}
+                        </>
+                      ) : (
+                        <option value="Đang tải..." disabled />
+                      )}
+                    </datalist>
+                  )}
+                  {!districtCode && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {/* Vui lòng chọn Quận/Huyện trước */}
+                    </p>
+                  )}
+                  {districtCode && placesLoading && (
+                    <p className="text-xs text-blue-500 mt-1">
+                      Đang tải danh sách Phường/Xã...
+                    </p>
+                  )}
+                  {districtCode && !placesLoading && wards.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Có {wards.length} gợi ý - Gõ để xem danh sách
+                    </p>
+                  )}
+                  {districtCode && !placesLoading && wards.length === 0 && (
+                    <p className="text-xs text-orange-500 mt-1">
+                      Không tìm thấy Phường/Xã cho Quận/Huyện này
+                    </p>
+                  )}
                 </div>
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Địa chỉ <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={addressInputRef}
+                  type="text"
+                  required
+                  value={form.address}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Nhập địa chỉ để xem gợi ý từ Google..."
+                  id="address-input"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {/* Sử dụng gợi ý từ Google Maps - Tự động điền Tỉnh/Thành phố, Quận/Huyện, Phường/Xã */}
+                </p>
+              </div>
+
+              
 
               <div>
                 <label className="block text-sm font-medium mb-1">
@@ -704,6 +1039,21 @@ const Checkout: React.FC = () => {
                 </div>
               </div>
 
+              {/* Lưu địa chỉ cho lần sau */}
+              {AuthService.getUser()?.id && (
+                <div className="flex items-center gap-2">
+                  <input
+                    id="saveAddress"
+                    type="checkbox"
+                    checked={saveAddress}
+                    onChange={(e) => setSaveAddress(e.target.checked)}
+                  />
+                  <label htmlFor="saveAddress" className="text-sm text-gray-700">
+                    Lưu địa chỉ này cho lần sau
+                  </label>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Ghi chú
@@ -722,7 +1072,7 @@ const Checkout: React.FC = () => {
           {/* Phần Voucher */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center">
-              <span className="mr-2">🎫</span>
+              <VoucherIcon className="mr-2 w-5 h-5" />
               Mã giảm giá & Voucher
               <span className="ml-auto text-sm font-normal text-gray-500">
                 {userVouchers.filter(uv => !uv.is_used).length} voucher có sẵn
@@ -735,7 +1085,7 @@ const Checkout: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-2xl">🎉</span>
+                      <CelebrationIcon className="w-6 h-6 text-green-600" />
                       <div className="font-bold text-green-800 text-lg">
                         {selectedVoucher.voucher.name || 'Voucher không tên'}
                       </div>
@@ -743,11 +1093,12 @@ const Checkout: React.FC = () => {
                     <div className="text-sm text-green-600 mt-1">
                       {selectedVoucher.voucher.description || 'Không có mô tả'}
                     </div>
-                    <div className="text-lg text-green-700 font-bold mt-3">
-                      💰 Tiết kiệm: {selectedVoucher.voucher.discount_type === 'percentage' 
+                    <div className="text-lg text-green-700 font-bold mt-3 flex items-center">
+                      <MoneyIcon className="w-5 h-5 mr-1" />
+                      <span>Tiết kiệm: {selectedVoucher.voucher.discount_type === 'percentage' 
                         ? `${selectedVoucher.voucher.discount_value || 0}%` 
                         : formatCurrency(selectedVoucher.voucher.discount_value || 0)
-                      }
+                      }</span>
                       {selectedVoucher.voucher.discount_type === 'percentage' && selectedVoucher.voucher.max_discount > 0 && 
                         ` (Tối đa: ${formatCurrency(selectedVoucher.voucher.max_discount)})`
                       }
@@ -758,9 +1109,10 @@ const Checkout: React.FC = () => {
                   </div>
                   <button
                     onClick={removeVoucher}
-                    className="px-4 py-2 text-sm text-red-600 hover:text-red-800 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                    className="px-4 py-2 text-sm text-red-600 hover:text-red-800 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium flex items-center"
                   >
-                    ❌ Bỏ chọn
+                    <XIcon className="w-4 h-4 mr-1" />
+                    Bỏ chọn
                   </button>
                 </div>
               </div>
@@ -769,7 +1121,7 @@ const Checkout: React.FC = () => {
             {/* Nhập mã voucher */}
             <div className="mb-6">
               <div className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                <span className="mr-2">🔍</span>
+                <SearchIcon className="mr-2 w-5 h-5" />
                 Nhập mã voucher:
               </div>
               <div className="flex space-x-2">
@@ -785,7 +1137,8 @@ const Checkout: React.FC = () => {
                   disabled={!voucherCode.trim()}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
                 >
-                  🚀 Áp dụng
+                  <RocketIcon className="w-4 h-4 mr-1 inline" />
+                  Áp dụng
                 </button>
               </div>
             </div>
@@ -799,7 +1152,7 @@ const Checkout: React.FC = () => {
             ) : userVouchers && userVouchers.length > 0 ? (
               <div>
                 <div className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                  <span className="mr-2">📋</span>
+                  <ListIcon className="mr-2 w-5 h-5" />
                   Voucher có sẵn ({userVouchers.filter(uv => !uv.is_used).length} voucher)
                   <span className="ml-auto text-xs text-gray-500">
                     {AuthService.getUser()?.id ? 'Từ admin + đã gán' : 'Từ admin'}
@@ -895,17 +1248,20 @@ const Checkout: React.FC = () => {
                                 <div className="text-xs font-medium mb-2">
                                   {isValid ? (
                                     canUse ? (
-                                      <span className="text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                                        ✅ Có thể sử dụng
+                                      <span className="text-green-600 bg-green-100 px-2 py-1 rounded-full flex items-center">
+                                        <CheckIcon className="w-4 h-4 mr-1" />
+                                        Có thể sử dụng
                                       </span>
                                     ) : (
-                                      <span className="text-orange-600 bg-orange-100 px-2 py-1 rounded-full">
-                                        ⚠️ Chưa đủ điều kiện
+                                      <span className="text-orange-600 bg-orange-100 px-2 py-1 rounded-full flex items-center">
+                                        <WarningIcon className="w-4 h-4 mr-1" />
+                                        Chưa đủ điều kiện
                                       </span>
                                     )
                                   ) : (
-                                    <span className="text-red-600 bg-red-100 px-2 py-1 rounded-full">
-                                      ❌ Hết hạn
+                                    <span className="text-red-600 bg-red-100 px-2 py-1 rounded-full flex items-center">
+                                      <XIcon className="w-4 h-4 mr-1" />
+                                      Hết hạn
                                     </span>
                                     )}
                                 </div>
@@ -917,9 +1273,10 @@ const Checkout: React.FC = () => {
                                       setSelectedVoucher(userVoucher);
                                       console.log('Selected voucher via button:', userVoucher);
                                     }}
-                                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors font-medium"
+                                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors font-medium flex items-center"
                                   >
-                                    🎯 Chọn
+                                    <TargetIcon className="w-4 h-4 mr-1" />
+                                    Chọn
                                   </button>
                                 )}
                               </div>
@@ -935,7 +1292,7 @@ const Checkout: React.FC = () => {
               </div>
             ) : (
               <div className="text-center py-8">
-                <div className="text-4xl mb-3">🎫</div>
+                <VoucherIcon className="w-16 h-16 mx-auto mb-3 text-gray-400" />
                 <p className="text-gray-500 mb-2">Bạn chưa có voucher nào</p>
                 <p className="text-sm text-gray-400">Liên hệ admin để được cấp voucher hoặc chờ các chương trình khuyến mãi!</p>
                 
@@ -953,9 +1310,10 @@ const Checkout: React.FC = () => {
                   <br />
                   <button 
                     onClick={createSampleVouchers}
-                    className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                    className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center mx-auto"
                   >
-                    🔧 Tạo voucher mẫu để test
+                    <SettingsIcon className="w-4 h-4 mr-1" />
+                    Tạo voucher mẫu để test
                   </button>
                 </div>
               </div>
@@ -985,7 +1343,7 @@ const Checkout: React.FC = () => {
                     ) : null}
                     <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs bg-gray-100" style={{ display: item.product_img ? 'none' : 'flex' }}>
                       <div className="text-center">
-                        <div className="text-lg">📦</div>
+                        <BoxIcon className="w-8 h-8 mx-auto" />
                         <div className="text-xs">IMG</div>
                       </div>
                     </div>
@@ -1053,7 +1411,7 @@ const Checkout: React.FC = () => {
                           />
                         ) : null}
                         <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs" style={{ display: item.product_img ? 'none' : 'flex' }}>
-                          📦
+                          <BoxIcon className="w-6 h-6" />
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1084,8 +1442,9 @@ const Checkout: React.FC = () => {
                     <span>-{formatCurrency(voucherDiscount)}</span>
                   </div>
                   <div className="text-xs text-gray-500 bg-green-50 p-2 rounded border border-green-200">
-                    <div className="font-medium text-green-800 mb-1">
-                      🎫 {selectedVoucher.voucher.name}
+                    <div className="font-medium text-green-800 mb-1 flex items-center">
+                      <VoucherIcon className="w-4 h-4 mr-1" />
+                      {selectedVoucher.voucher.name}
                     </div>
                     <div className="text-green-700">
                       {selectedVoucher.voucher.discount_type === 'percentage' 
@@ -1119,8 +1478,9 @@ const Checkout: React.FC = () => {
                   <span className="text-blue-600">{formatCurrency(finalTotal)}</span>
                 </div>
                 {selectedVoucher && selectedVoucher.voucher && (
-                  <div className="text-xs text-green-600 text-center mt-2">
-                    💰 Tiết kiệm được: {formatCurrency(voucherDiscount)}
+                  <div className="text-xs text-green-600 text-center mt-2 flex items-center justify-center">
+                    <MoneyIcon className="w-4 h-4 mr-1" />
+                    <span>Tiết kiệm được: {formatCurrency(voucherDiscount)}</span>
                   </div>
                 )}
               </div>

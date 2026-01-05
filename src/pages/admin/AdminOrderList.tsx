@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import type { Order, OrderItem } from '../../assets/api/types';
+import type { Order, OrderItem, OrderItemWithDetails } from '../../assets/api/types';
 import { AdminService } from '../../assets/api/adminService';
+import { OrderService } from '../../assets/api/orderService';
+import { RefreshIcon } from '../../components/Icons';
 
 interface OrderWithItems extends Order {
   items?: OrderItem[];
   user_name?: string;
+  full_name?: string;
+  email?: string;
 }
 
 const AdminOrderList: React.FC = () => {
@@ -12,6 +16,8 @@ const AdminOrderList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
+  const [orderItems, setOrderItems] = useState<OrderItemWithDetails[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
 
   const loadOrders = async () => {
     try {
@@ -107,6 +113,24 @@ const AdminOrderList: React.FC = () => {
     }
   };
 
+  const handlePaymentStatusChange = async (orderId: number, newPaymentStatus: string) => {
+    try {
+      await AdminService.updatePaymentStatus(orderId, newPaymentStatus);
+      loadOrders();
+    } catch (e: any) {
+      setError(e.message || 'Cập nhật trạng thái thanh toán thất bại');
+    }
+  };
+
+  const handleShippingStatusChange = async (orderId: number, newShippingStatus: string) => {
+    try {
+      await AdminService.updateShippingStatus(orderId, newShippingStatus);
+      loadOrders();
+    } catch (e: any) {
+      setError(e.message || 'Cập nhật trạng thái vận chuyển thất bại');
+    }
+  };
+
   const handleDelete = async (orderId: number) => {
     if (!confirm('Bạn có chắc muốn xóa order này?')) return;
     try {
@@ -114,6 +138,29 @@ const AdminOrderList: React.FC = () => {
       loadOrders();
     } catch (e: any) {
       setError(e.message || 'Xóa order thất bại');
+    }
+  };
+
+  const loadOrderItems = async (orderId: number) => {
+    try {
+      setLoadingItems(true);
+      const items = await OrderService.getOrderItemsWithDetails(orderId);
+      setOrderItems(items);
+    } catch (e: any) {
+      console.error('Error loading order items:', e);
+      setError(e.message || 'Tải chi tiết sản phẩm thất bại');
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
+  const handleOrderClick = (order: OrderWithItems) => {
+    if (selectedOrder?.id === order.id) {
+      setSelectedOrder(null);
+      setOrderItems([]);
+    } else {
+      setSelectedOrder(order);
+      loadOrderItems(order.id);
     }
   };
 
@@ -136,6 +183,18 @@ const AdminOrderList: React.FC = () => {
     }
   };
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Chờ xử lý';
+      case 'paid': return 'Đã thanh toán';
+      case 'shipped': return 'Đã gửi hàng';
+      case 'completed': return 'Hoàn thành';
+      case 'cancelled': return 'Đã hủy';
+      case 'refunded': return 'Hoàn tiền';
+      default: return status;
+    }
+  };
+
   if (loading) return <div className="max-w-7xl mx-auto p-4">Đang tải...</div>;
 
   return (
@@ -144,9 +203,10 @@ const AdminOrderList: React.FC = () => {
         <h1 className="text-2xl font-bold">Quản lý Orders</h1>
         <button 
           onClick={loadOrders} 
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
-          🔄 Làm mới
+          <RefreshIcon className="w-4 h-4" />
+          Làm mới
         </button>
       </div>
 
@@ -193,53 +253,91 @@ const AdminOrderList: React.FC = () => {
                 <tr key={order.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
-                      onClick={() => setSelectedOrder(selectedOrder?.id === order.id ? null : order)}
+                      onClick={() => handleOrderClick(order)}
                       className="text-blue-600 hover:underline font-mono text-sm"
                     >
                       {order.code}
                     </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {order.user_name || `User #${order.user_id}`}
+                    {order.full_name || order.user_name || `User #${order.user_id}`}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                     {formatCurrency(order.total)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <select
-                      value={order.status}
-                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                      className={`px-3 py-2 rounded text-sm border ${getStatusColor(order.status)}`}
-                    >
-                      <option value="pending">Chờ xử lý</option>
-                      <option value="paid">Đã thanh toán</option>
-                      <option value="shipped">Đã gửi hàng</option>
-                      <option value="completed">Hoàn thành</option>
-                      <option value="cancelled">Đã hủy</option>
-                      <option value="refunded">Hoàn tiền</option>
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(order.status)}`}>
+                        {getStatusText(order.status)}
+                      </span>
+                      <select
+                        value={order.status}
+                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                        className="px-2 py-1 rounded text-xs border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="pending">Chờ xử lý</option>
+                        <option value="paid">Đã thanh toán</option>
+                        <option value="shipped">Đã gửi hàng</option>
+                        <option value="completed">Hoàn thành</option>
+                        <option value="cancelled">Đã hủy</option>
+                        <option value="refunded">Hoàn tiền</option>
+                      </select>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      order.payment_status === 'success' ? 'bg-green-100 text-green-800' :
-                      order.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {order.payment_status === 'success' ? 'Thành công' :
-                       order.payment_status === 'pending' ? 'Chờ xử lý' : 'Thất bại'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        order.payment_status === 'success' ? 'bg-green-100 text-green-800' :
+                        order.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        order.payment_status === 'refunded' ? 'bg-gray-100 text-gray-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {order.payment_status === 'success' ? 'Thành công' :
+                         order.payment_status === 'pending' ? 'Chờ xử lý' :
+                         order.payment_status === 'refunded' ? 'Đã hoàn tiền' :
+                         'Thất bại'}
+                      </span>
+                      <select
+                        value={order.payment_status}
+                        onChange={(e) => handlePaymentStatusChange(order.id, e.target.value)}
+                        className="px-2 py-1 rounded text-xs border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="pending">Chờ xử lý</option>
+                        <option value="success">Thành công</option>
+                        <option value="failed">Thất bại</option>
+                        <option value="refunded">Đã hoàn tiền</option>
+                      </select>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      order.shipping_status === 'delivered' ? 'bg-green-100 text-green-800' :
-                      order.shipping_status === 'in_transit' ? 'bg-blue-100 text-blue-800' :
-                      order.shipping_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-600'
-                    }`}>
-                      {order.shipping_status === 'delivered' ? 'Đã giao' :
-                       order.shipping_status === 'in_transit' ? 'Đang giao' :
-                       order.shipping_status === 'pending' ? 'Chờ xử lý' : 'Chưa xác định'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        order.shipping_status === 'delivered' ? 'bg-green-100 text-green-800' :
+                        order.shipping_status === 'in_transit' ? 'bg-blue-100 text-blue-800' :
+                        order.shipping_status === 'picked_up' ? 'bg-purple-100 text-purple-800' :
+                        order.shipping_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        order.shipping_status === 'failed' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {order.shipping_status === 'delivered' ? 'Đã giao' :
+                         order.shipping_status === 'in_transit' ? 'Đang giao' :
+                         order.shipping_status === 'picked_up' ? 'Đã lấy hàng' :
+                         order.shipping_status === 'pending' ? 'Chờ xử lý' :
+                         order.shipping_status === 'failed' ? 'Giao hàng thất bại' :
+                         'Chưa xác định'}
+                      </span>
+                      <select
+                        value={order.shipping_status}
+                        onChange={(e) => handleShippingStatusChange(order.id, e.target.value)}
+                        className="px-2 py-1 rounded text-xs border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="pending">Chờ xử lý</option>
+                        <option value="picked_up">Đã lấy hàng</option>
+                        <option value="in_transit">Đang giao</option>
+                        <option value="delivered">Đã giao</option>
+                        <option value="failed">Giao hàng thất bại</option>
+                      </select>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(order.placed_at || order.created_at).toLocaleDateString('vi-VN')}
@@ -273,7 +371,10 @@ const AdminOrderList: React.FC = () => {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold">Chi tiết Order: {selectedOrder.code}</h2>
                 <button
-                  onClick={() => setSelectedOrder(null)}
+                  onClick={() => {
+                    setSelectedOrder(null);
+                    setOrderItems([]);
+                  }}
                   className="text-gray-500 hover:text-gray-700 text-2xl"
                 >
                   ×
@@ -283,7 +384,8 @@ const AdminOrderList: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <h3 className="font-semibold mb-2">Thông tin khách hàng</h3>
-                  <p><strong>Tên:</strong> {selectedOrder.user_name}</p>
+                  <p><strong>Tên:</strong> {selectedOrder.full_name || selectedOrder.user_name || 'N/A'}</p>
+                  <p><strong>Email:</strong> {selectedOrder.email || 'N/A'}</p>
                   <p><strong>ID:</strong> {selectedOrder.user_id}</p>
                 </div>
                 <div>
@@ -295,28 +397,34 @@ const AdminOrderList: React.FC = () => {
 
               <div className="mb-6">
                 <h3 className="font-semibold mb-2">Chi tiết sản phẩm</h3>
-                <table className="w-full border">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="p-2 text-left">Sản phẩm</th>
-                      <th className="p-2 text-left">SKU</th>
-                      <th className="p-2 text-right">Đơn giá</th>
-                      <th className="p-2 text-center">Số lượng</th>
-                      <th className="p-2 text-right">Thành tiền</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedOrder.items?.map((item) => (
-                      <tr key={item.id} className="border-t">
-                        <td className="p-2">{item.name_snapshot}</td>
-                        <td className="p-2">{item.sku_snapshot}</td>
-                        <td className="p-2 text-right">{formatCurrency(item.unit_price)}</td>
-                        <td className="p-2 text-center">{item.quantity}</td>
-                        <td className="p-2 text-right font-semibold">{formatCurrency(item.total)}</td>
+                {loadingItems ? (
+                  <div className="text-center py-4 text-gray-500">Đang tải...</div>
+                ) : orderItems.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">Không có sản phẩm nào</div>
+                ) : (
+                  <table className="w-full border">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="p-2 text-left">Sản phẩm</th>
+                        <th className="p-2 text-left">SKU</th>
+                        <th className="p-2 text-right">Đơn giá</th>
+                        <th className="p-2 text-center">Số lượng</th>
+                        <th className="p-2 text-right">Thành tiền</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {orderItems.map((item) => (
+                        <tr key={item.id} className="border-t">
+                          <td className="p-2">{item.product_name || item.name_snapshot || 'N/A'}</td>
+                          <td className="p-2">{item.sku_snapshot || 'N/A'}</td>
+                          <td className="p-2 text-right">{formatCurrency(item.unit_price)}</td>
+                          <td className="p-2 text-center">{item.quantity}</td>
+                          <td className="p-2 text-right font-semibold">{formatCurrency(item.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
 
               <div className="border-t pt-4">

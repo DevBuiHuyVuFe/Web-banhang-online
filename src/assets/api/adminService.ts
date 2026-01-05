@@ -112,6 +112,14 @@ export const AdminService = {
     return httpPost<{ success: boolean }>(`orders/${id}/status?admin=1`, { status });
   },
 
+  async updatePaymentStatus(id: number, payment_status: string): Promise<{ success: boolean }> {
+    return httpPost<{ success: boolean }>(`orders/${id}/payment-status?admin=1`, { payment_status });
+  },
+
+  async updateShippingStatus(id: number, shipping_status: string): Promise<{ success: boolean }> {
+    return httpPost<{ success: boolean }>(`orders/${id}/shipping-status?admin=1`, { shipping_status });
+  },
+
   async deleteOrder(id: number): Promise<{ success: boolean }> {
     return httpPost<{ success: boolean }>(`orders/${id}?admin=1`, { _method: 'DELETE' });
   },

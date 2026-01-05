@@ -4,6 +4,7 @@ import { AdminService } from '../../assets/api/adminService';
 import { CategoryService } from '../../assets/api/categoryService';
 import type { Product, Category, ProductImage } from '../../assets/api/types';
 import { Link } from 'react-router-dom';
+import { EditIcon, TrashIcon, StarIcon, RefreshIcon, DocumentIcon, FileIcon, PlusIcon, SaveIcon } from '../../components/Icons';
 
 
 interface ProductFormData {
@@ -114,6 +115,18 @@ const AdminProductList: React.FC = () => {
 
   const handleEdit = async (product: Product) => {
     setEditingProduct(product);
+    
+    // Load chi tiết sản phẩm để lấy category_id và ảnh con
+    let categoryId = null;
+    try {
+      const detail = await ProductService.getDetail(product.id);
+      categoryId = detail.product.category_id || null;
+      setProductImages(detail.images || []);
+    } catch (e: any) {
+      console.error('Load product detail error:', e);
+      setProductImages([]);
+    }
+    
     setFormData({
       name: product.name,
       slug: product.slug,
@@ -124,7 +137,7 @@ const AdminProductList: React.FC = () => {
       product_img_title: product.product_img_title || '',
       has_images: product.has_images || false,
       brand: product.brand || '',
-      category_id: null, // TODO: Load category_id from product_category table
+      category_id: categoryId,
       is_active: product.is_active,
       primary_image_file: null
     });
@@ -134,15 +147,6 @@ const AdminProductList: React.FC = () => {
       setImageMode('url');
     } else {
       setImageMode('file');
-    }
-    
-    // Load ảnh con từ product_images
-    try {
-      const detail = await ProductService.getDetail(product.id);
-      setProductImages(detail.images || []);
-    } catch (e: any) {
-      console.error('Load product images error:', e);
-      setProductImages([]);
     }
     
     setShowEditModal(true);
@@ -179,7 +183,8 @@ const AdminProductList: React.FC = () => {
           product_img_title: formData.product_img_title,
           has_images: formData.has_images,
           brand: formData.brand,
-          is_active: formData.is_active
+          is_active: formData.is_active,
+          category_id: formData.category_id
         });
         
         alert('Cập nhật sản phẩm thành công!');
@@ -444,9 +449,10 @@ const AdminProductList: React.FC = () => {
           </Link>
           <button 
             onClick={() => load(page)} 
-            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors flex items-center"
           >
-            🔄 Làm mới
+            <RefreshIcon className="w-4 h-4 mr-1" />
+            Làm mới
           </button>
         </div>
       </div>
@@ -539,13 +545,15 @@ const AdminProductList: React.FC = () => {
                         onClick={() => handleEdit(product)}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        ✏️ Sửa
+                        <EditIcon className="w-4 h-4 mr-1 inline" />
+                        Sửa
                       </button>
                       <button 
                         onClick={() => handleDelete(product.id)}
-                        className="text-red-600 hover:text-red-900"
+                        className="text-red-600 hover:text-red-900 flex items-center"
                       >
-                        🗑️ Xóa
+                        <TrashIcon className="w-4 h-4 mr-1" />
+                        Xóa
                       </button>
                     </div>
                   </td>
@@ -721,7 +729,8 @@ const AdminProductList: React.FC = () => {
                           imageMode === 'url' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                         }`}
                       >
-                        📝 Nhập URL
+                        <DocumentIcon className="w-4 h-4 mr-1 inline" />
+                        Nhập URL
                       </button>
                       <button
                         type="button"
@@ -732,11 +741,12 @@ const AdminProductList: React.FC = () => {
                             product_img: ''
                           }));
                         }}
-                        className={`px-4 py-2 text-sm rounded ${
+                        className={`px-4 py-2 text-sm rounded flex items-center ${
                           imageMode === 'file' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                         }`}
                       >
-                        📁 Upload File
+                        <FileIcon className="w-4 h-4 mr-1" />
+                        Upload File
                       </button>
                     </div>
                   </div>
@@ -808,7 +818,8 @@ const AdminProductList: React.FC = () => {
                           onClick={removeImage}
                           className="text-sm text-red-600 hover:text-red-800"
                         >
-                          🗑️ Xóa ảnh
+                          <TrashIcon className="w-4 h-4 mr-1 inline" />
+                          Xóa ảnh
                         </button>
                       </div>
                       <div className="relative">
@@ -827,8 +838,9 @@ const AdminProductList: React.FC = () => {
                         )}
                       </div>
                       {formData.primary_image_file && (
-                        <p className="text-xs text-green-600 mt-2">
-                          📁 {formData.primary_image_file.name} ({(formData.primary_image_file.size / 1024 / 1024).toFixed(2)} MB)
+                        <p className="text-xs text-green-600 mt-2 flex items-center">
+                          <FileIcon className="w-3 h-3 mr-1" />
+                          {formData.primary_image_file.name} ({(formData.primary_image_file.size / 1024 / 1024).toFixed(2)} MB)
                         </p>
                       )}
                     </div>
@@ -900,20 +912,22 @@ const AdminProductList: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setImageMode('url')}
-                          className={`px-3 py-1 text-sm rounded ${
+                          className={`px-3 py-1 text-sm rounded flex items-center ${
                             imageMode === 'url' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                           }`}
                         >
-                          📝 Nhập URL
+                          <DocumentIcon className="w-3 h-3 mr-1" />
+                          Nhập URL
                         </button>
                         <button
                           type="button"
                           onClick={() => setImageMode('file')}
-                          className={`px-3 py-1 text-sm rounded ${
+                          className={`px-3 py-1 text-sm rounded flex items-center ${
                             imageMode === 'file' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                           }`}
                         >
-                          📁 Upload File
+                          <FileIcon className="w-3 h-3 mr-1" />
+                          Upload File
                         </button>
                       </div>
                       
@@ -976,7 +990,8 @@ const AdminProductList: React.FC = () => {
                                   onClick={removeImageFile}
                                   className="text-sm text-red-600 hover:text-red-800"
                                 >
-                                  🗑️ Xóa file
+                                  <TrashIcon className="w-4 h-4 mr-1 inline" />
+                                  Xóa file
                                 </button>
                               </div>
                               <div className="flex items-center space-x-3">
@@ -1031,9 +1046,10 @@ const AdminProductList: React.FC = () => {
                       type="button"
                       onClick={addProductImage}
                       disabled={(imageMode === 'url' && !newImage.url.trim()) || (imageMode === 'file' && !newImage.file)}
-                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
                     >
-                      ➕ Thêm ảnh con
+                      <PlusIcon className="w-4 h-4 mr-1" />
+                      Thêm ảnh con
                     </button>
                   </div>
                   
@@ -1073,7 +1089,17 @@ const AdminProductList: React.FC = () => {
                                       : 'bg-blue-600 text-white'
                                   }`}
                                 >
-                                  {image.is_primary ? '⭐ Chính' : '⭐ Đặt chính'}
+                                  {image.is_primary ? (
+                                    <>
+                                      <StarIcon className="w-4 h-4 mr-1 inline" />
+                                      Chính
+                                    </>
+                                  ) : (
+                                    <>
+                                      <StarIcon className="w-4 h-4 mr-1 inline" />
+                                      Đặt chính
+                                    </>
+                                  )}
                                 </button>
                                 
                                 <button
@@ -1081,15 +1107,17 @@ const AdminProductList: React.FC = () => {
                                   onClick={() => deleteProductImage(image.id)}
                                   className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
                                 >
-                                  🗑️ Xóa
+                                  <TrashIcon className="w-4 h-4 mr-1 inline" />
+                                  Xóa
                                 </button>
                               </div>
                             </div>
                             
                             {/* Badge cho ảnh chính */}
                             {image.is_primary && (
-                              <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">
-                                ⭐ Chính
+                              <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
+                                <StarIcon className="w-3 h-3 mr-1" />
+                                Chính
                               </div>
                             )}
                             
@@ -1110,9 +1138,10 @@ const AdminProductList: React.FC = () => {
                 <div className="flex space-x-3 pt-4">
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center"
                   >
-                    💾 Cập nhật
+                    <SaveIcon className="w-4 h-4 mr-1" />
+                    Cập nhật
                   </button>
                   <button
                     type="button"

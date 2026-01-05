@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { EmailIcon, MapIcon, ClockIcon, UserIcon, LocationIcon, PhoneIcon } from '../components/Icons';
+import { AuthService } from '../assets/api/authService';
+
 
 const Contact: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -10,6 +13,21 @@ const Contact: React.FC = () => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const currentUser = AuthService.getUser();
+    if (currentUser) {
+      setUser(currentUser);
+      // Tự động điền thông tin user vào form
+      setFormData(prev => ({
+        ...prev,
+        name: currentUser.full_name || '',
+        email: currentUser.email || '',
+        phone: currentUser.phone || ''
+      }));
+    }
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -58,9 +76,43 @@ const Contact: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
           {/* Contact Form */}
           <div className="bg-white rounded-2xl shadow-xl p-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-8">
-              Gửi Tin Nhắn
-            </h2>
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900">
+                Gửi Tin Nhắn
+              </h2>
+              {user && (
+                <div className="flex items-center space-x-3 bg-blue-50 px-4 py-2 rounded-lg">
+                  {user.avatar ? (
+                    <img
+                      src={`http://localhost:3000${user.avatar}`}
+                      alt="Avatar"
+                      className="w-10 h-10 rounded-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const fallback = target.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center ${user.avatar ? 'hidden' : ''}`}>
+                    <UserIcon className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {user && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Thông tin của bạn đã được tự động điền.</strong> Bạn có thể chỉnh sửa nếu cần.
+                </p>
+              </div>
+            )}
             
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -165,6 +217,43 @@ const Contact: React.FC = () => {
 
           {/* Contact Information */}
           <div className="space-y-8">
+            {/* User Information */}
+            {user && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-xl p-8 border-2 border-blue-200">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                  Thông Tin Của Bạn
+                </h3>
+                <div className="flex items-center space-x-4 mb-6">
+                  {user.avatar ? (
+                    <img
+                      src={`http://localhost:3000${user.avatar}`}
+                      alt="Avatar"
+                      className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const fallback = target.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-20 h-20 rounded-full bg-white flex items-center justify-center border-4 border-white shadow-lg ${user.avatar ? 'hidden' : ''}`}>
+                    <UserIcon className="w-10 h-10 text-gray-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-bold text-gray-900">{user.full_name}</h4>
+                    <p className="text-gray-600">{user.email}</p>
+                    {user.phone && (
+                      <p className="text-gray-600">{user.phone}</p>
+                    )}
+                  </div>
+                </div>
+                {/* <p className="text-sm text-gray-600">
+                  Thông tin của bạn đã được tự động điền vào form liên hệ bên trái.
+                </p> */}
+              </div>
+            )}
+
             {/* Quick Contact */}
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <h3 className="text-2xl font-bold text-gray-900 mb-6">
@@ -174,7 +263,7 @@ const Contact: React.FC = () => {
               <div className="space-y-6">
                 <div className="flex items-start space-x-4">
                   <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="text-2xl">📍</div>
+                    <LocationIcon className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-1">Địa Chỉ</h4>
@@ -187,7 +276,7 @@ const Contact: React.FC = () => {
                 
                 <div className="flex items-start space-x-4">
                   <div className="bg-green-100 w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="text-2xl">📞</div>
+                    <PhoneIcon className="w-6 h-6 text-green-600" />
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-1">Điện Thoại</h4>
@@ -201,7 +290,7 @@ const Contact: React.FC = () => {
                 
                 <div className="flex items-start space-x-4">
                   <div className="bg-purple-100 w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="text-2xl">✉️</div>
+                    <EmailIcon className="w-6 h-6 text-purple-600" />
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-1">Email</h4>
@@ -215,7 +304,7 @@ const Contact: React.FC = () => {
                 
                 <div className="flex items-start space-x-4">
                   <div className="bg-orange-100 w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
-                    <div className="text-2xl">🕒</div>
+                    <ClockIcon className="w-6 h-6 text-orange-600" />
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-1">Giờ Làm Việc</h4>
@@ -305,7 +394,7 @@ const Contact: React.FC = () => {
             
             <div className="bg-gray-200 rounded-lg h-96 flex items-center justify-center">
               <div className="text-center text-gray-500">
-                <div className="text-6xl mb-4">🗺️</div>
+                <MapIcon className="w-16 h-16 mx-auto mb-4" />
                 <p className="text-lg">Bản đồ sẽ được hiển thị ở đây</p>
                 <p className="text-sm">Google Maps Integration</p>
               </div>

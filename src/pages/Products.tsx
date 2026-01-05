@@ -8,6 +8,7 @@ const Products: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
@@ -20,18 +21,27 @@ const Products: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Đợi categories load xong trước khi load products với category filter
+    if (categoriesLoading) return;
+    
     const category = searchParams.get('category');
     setSelectedCategory(category || '');
     setPage(1);
     loadProducts(1, category);
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, categoriesLoading]);
 
   const loadCategories = async () => {
     try {
+      setCategoriesLoading(true);
       const response = await CategoryService.list();
-      setCategories(response.data || []);
+      const loadedCategories = response.data || [];
+      setCategories(loadedCategories);
+      console.log('Categories loaded:', loadedCategories);
     } catch (e: any) {
       console.error('Load categories error:', e);
+    } finally {
+      setCategoriesLoading(false);
     }
   };
 
@@ -39,27 +49,19 @@ const Products: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await ProductService.getList(pageNum, pageSize);
+      // Gửi category slug đến backend để lọc sản phẩm
+      const res = await ProductService.getList(pageNum, pageSize, categorySlug || null);
       let filteredProducts = res.data;
       
       // Debug: Log dữ liệu sản phẩm để kiểm tra ảnh
       console.log('Products loaded:', filteredProducts);
-      filteredProducts.forEach(product => {
-        console.log(`Product ${product.id}:`, {
-          name: product.name,
-          product_img: product.product_img,
-          product_img_alt: product.product_img_alt,
-          has_images: product.has_images
-        });
-      });
-      
-      // Lọc theo danh mục nếu có
       if (categorySlug) {
+        console.log('Filtering by category slug:', categorySlug);
         const category = categories.find(c => c.slug === categorySlug);
         if (category) {
-          // TODO: Implement category filtering in backend API
-          // For now, just show all products
-          console.log('Filtering by category:', category.name);
+          console.log('Category found:', category.name);
+        } else {
+          console.warn('Category not found in local cache:', categorySlug);
         }
       }
       
@@ -88,25 +90,55 @@ const Products: React.FC = () => {
     }).format(amount);
   };
 
-  if (loading) return <div className="max-w-7xl mx-auto p-4">Đang tải...</div>;
+  if (loading || categoriesLoading) return <div className="max-w-7xl mx-auto p-4">Đang tải...</div>;
 
   if (error) return <div className="max-w-7xl mx-auto p-4 text-red-600">{error}</div>;
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const currentCategory = categories.find(c => c.slug === selectedCategory);
+  // So sánh slug không phân biệt hoa thường và loại bỏ khoảng trắng
+  const currentCategory = categories.find(c => 
+    c.slug?.toLowerCase().trim() === selectedCategory?.toLowerCase().trim()
+  );
+  
+  // Debug log
+  if (selectedCategory) {
+    console.log('Selected category slug:', selectedCategory);
+    console.log('Available categories:', categories.map(c => ({ name: c.name, slug: c.slug })));
+    console.log('Current category found:', currentCategory);
+  }
+
+  // Nếu không tìm thấy category chính xác, thử tìm gần đúng (loại bỏ ký tự lặp lại ở cuối)
+  let matchedCategory = currentCategory;
+  if (!matchedCategory && selectedCategory) {
+    const normalizedSlug = selectedCategory.toLowerCase().trim();
+    // Thử tìm category có slug tương tự (ví dụ: dien-thoaii -> dien-thoai)
+    matchedCategory = categories.find(c => {
+      const catSlug = c.slug?.toLowerCase().trim() || '';
+      // So sánh chính xác
+      if (catSlug === normalizedSlug) return true;
+      // So sánh loại bỏ ký tự lặp lại ở cuối (ví dụ: dien-thoaii vs dien-thoai)
+      const normalizedCatSlug = catSlug.replace(/(.)\1+$/, '$1');
+      const normalizedSelectedSlug = normalizedSlug.replace(/(.)\1+$/, '$1');
+      return normalizedCatSlug === normalizedSelectedSlug;
+    });
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-4">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-2">
-            {currentCategory ? currentCategory.name : 'Sản phẩm'}
+            {matchedCategory ? matchedCategory.name : selectedCategory ? `Danh mục: ${selectedCategory}` : 'Sản phẩm'}
           </h1>
-          {currentCategory && (
+          {matchedCategory ? (
             <p className="text-gray-600">
-              Danh mục: {currentCategory.name}
+              Danh mục: {matchedCategory.name}
             </p>
-          )}
+          ) : selectedCategory ? (
+            <p className="text-gray-500 text-sm">
+              Không tìm thấy danh mục với slug: {selectedCategory}
+            </p>
+          ) : null}
         </div>
         
         {/* Category filter */}
@@ -127,13 +159,13 @@ const Products: React.FC = () => {
       </div>
 
       {/* Breadcrumb */}
-      {currentCategory && (
+      {selectedCategory && (
         <nav className="mb-6 text-sm text-gray-500">
           <Link to="/" className="hover:text-blue-600">Trang chủ</Link>
           <span className="mx-2">/</span>
           <Link to="/products" className="hover:text-blue-600">Sản phẩm</Link>
           <span className="mx-2">/</span>
-          <span className="text-gray-700">{currentCategory.name}</span>
+          <span className="text-gray-700">{matchedCategory ? matchedCategory.name : selectedCategory}</span>
         </nav>
       )}
 
@@ -247,7 +279,7 @@ const Products: React.FC = () => {
       {/* Thống kê */}
       <div className="mt-8 text-center text-gray-600">
         Hiển thị {products.length} sản phẩm trong tổng số {total}
-        {currentCategory && ` thuộc danh mục "${currentCategory.name}"`}
+        {matchedCategory && ` thuộc danh mục "${matchedCategory.name}"`}
       </div>
     </div>
   );

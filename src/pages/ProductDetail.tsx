@@ -4,6 +4,7 @@ import { ProductService } from '../assets/api/productService';
 import { CartService } from '../assets/api/cartService';
 import { AuthService } from '../assets/api/authService';
 import type { Product, ProductVariant, ProductImage } from '../assets/api/types';
+import { CheckIcon, WarningIcon, InfoIcon, XIcon, StarIcon, ShoppingCartIcon, CreditCardIcon, DocumentIcon } from '../components/Icons';
 
 interface Review {
   id: number;
@@ -236,8 +237,9 @@ const ProductDetail: React.FC = () => {
     <div className="max-w-7xl mx-auto p-4">
       {/* Thông báo thành công */}
       {showSuccess && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce">
-          ✅ Đã thêm vào giỏ hàng thành công!
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce flex items-center">
+          <CheckIcon className="w-5 h-5 mr-2" />
+          <span>Đã thêm vào giỏ hàng thành công!</span>
         </div>
       )}
 
@@ -434,29 +436,41 @@ const ProductDetail: React.FC = () => {
                 disabled={addingToCart || !selectedVariant}
                 className="py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
               >
-                {addingToCart ? 'Đang thêm...' : '🛒 Thêm vào giỏ hàng'}
+                {addingToCart ? 'Đang thêm...' : (
+                  <>
+                    <ShoppingCartIcon className="w-4 h-4 mr-1 inline" />
+                    Thêm vào giỏ hàng
+                  </>
+                )}
               </button>
               
               <button
                 onClick={handleBuyNow}
                 disabled={addingToCart || !selectedVariant}
-                className="py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-semibold"
+                className="py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-semibold flex items-center justify-center"
               >
-                {addingToCart ? 'Đang xử lý...' : '💳 Mua ngay'}
+                {addingToCart ? 'Đang xử lý...' : (
+                  <>
+                    <CreditCardIcon className="w-5 h-5 mr-2" />
+                    Mua ngay
+                  </>
+                )}
               </button>
             </div>
 
             {/* Thông báo nếu chưa chọn biến thể */}
             {!selectedVariant && variants.length > 0 && (
-              <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg border border-orange-200">
-                ⚠️ <strong>Vui lòng chọn biến thể sản phẩm</strong> (màu, size) trước khi thêm vào giỏ hàng
+              <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg border border-orange-200 flex items-start">
+                <WarningIcon className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                <div><strong>Vui lòng chọn biến thể sản phẩm</strong> (màu, size) trước khi thêm vào giỏ hàng</div>
               </div>
             )}
 
             {/* Thông báo nếu không có biến thể */}
             {variants.length === 0 && (
-              <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                ℹ️ <strong>Sản phẩm này chưa có biến thể.</strong> Vui lòng liên hệ admin để thêm biến thể.
+              <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-start">
+                <InfoIcon className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                <div><strong>Sản phẩm này chưa có biến thể.</strong> Vui lòng liên hệ admin để thêm biến thể.</div>
               </div>
             )}
           </div>
@@ -490,7 +504,17 @@ const ProductDetail: React.FC = () => {
               onClick={() => setShowReviewForm(!showReviewForm)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
-              {showReviewForm ? '❌ Hủy' : '⭐ Viết đánh giá'}
+              {showReviewForm ? (
+                <>
+                  <XIcon className="w-4 h-4 mr-1 inline" />
+                  Hủy
+                </>
+              ) : (
+                <>
+                  <StarIcon className="w-4 h-4 mr-1 inline" />
+                  Viết đánh giá
+                </>
+              )}
             </button>
           </div>
 
@@ -620,7 +644,7 @@ const ProductDetail: React.FC = () => {
               </div>
             ) : reviews.length === 0 ? (
               <div className="text-center py-8">
-                <div className="text-4xl mb-3">📝</div>
+                <DocumentIcon className="w-16 h-16 mx-auto mb-3 text-gray-400" />
                 <p className="text-gray-500 mb-2">Chưa có đánh giá nào</p>
                 <p className="text-sm text-gray-400">Hãy là người đầu tiên đánh giá sản phẩm này!</p>
               </div>

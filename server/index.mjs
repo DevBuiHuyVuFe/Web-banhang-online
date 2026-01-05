@@ -5,6 +5,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { buildCreatePaymentPayload, verifyMomoIpnSignature } from './momo.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +15,26 @@ const app = express();
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 app.use(express.json());
+
+// Helper: fetch JSON với timeout (Node 18+)
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    const text = await res.text();
+    let data;
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+    if (!res.ok) {
+      const err = new Error(`HTTP ${res.status} ${res.statusText}`);
+      err.detail = data;
+      throw err;
+    }
+    return data;
+  } finally {
+    clearTimeout(t);
+  }
+}
 
 // Helper: build absolute URL cho các đường dẫn ảnh (tránh hard-code localhost)
 function buildFullUrl(req, url) {
@@ -184,7 +205,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const [users] = await pool.query(
-      'SELECT id, email, full_name, role, status FROM users WHERE email = ? AND password_hash = ? LIMIT 1',
+      'SELECT id, email, full_name, phone, role, status, COALESCE(avatar, NULL) as avatar FROM users WHERE email = ? AND password_hash = ? LIMIT 1',
       [email, password]
     );
 
@@ -204,7 +225,14 @@ app.post('/api/auth/login', async (req, res) => {
     console.log('Login successful for user:', user.email);
     res.json({ 
       success: true, 
-      user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role },
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        full_name: user.full_name, 
+        phone: user.phone || null, 
+        avatar: user.avatar || null,
+        role: user.role 
+      },
       message: 'Đăng nhập thành công'
     });
   } catch (e) {
@@ -239,7 +267,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     res.json({ 
       success: true, 
-      user: { id: result.insertId, email, full_name, role: 'user' },
+      user: { id: result.insertId, email, full_name, phone: phone || null, avatar: null, role: 'user' },
       message: 'Đăng ký thành công'
     });
   } catch (e) {
@@ -271,11 +299,63 @@ app.put('/api/users/:id', async (req, res) => {
     // Tạm thời bỏ qua kiểm tra admin để test
     // if (req.query.admin !== '1') return res.status(403).json({ error: 'Yêu cầu quyền admin' });
     const id = Number(req.params.id);
-    const { password, full_name, phone, role, status } = req.body;
-    await pool.query(
-      'UPDATE users SET password_hash = COALESCE(?, password_hash), full_name = COALESCE(?, full_name), phone = ?, role = COALESCE(?, role), status = COALESCE(?, status) WHERE id = ?',
-      [password ?? null, full_name ?? null, phone ?? null, role ?? null, status ?? null, id]
-    );
+    const { password, full_name, phone, role, status, avatar } = req.body;
+    
+    console.log('Update user request:', { id, body: req.body, avatar });
+    
+    // Kiểm tra xem có cột avatar không và tự động tạo nếu cần
+    let hasAvatarColumn = false;
+    try {
+      const [columns] = await pool.query('DESCRIBE users');
+      hasAvatarColumn = columns.some(col => col.Field === 'avatar');
+      
+      // Nếu cần update avatar nhưng cột chưa có, tự động tạo
+      if (avatar !== undefined && !hasAvatarColumn) {
+        console.log('Adding missing column: avatar');
+        await pool.query('ALTER TABLE users ADD COLUMN avatar VARCHAR(512) DEFAULT NULL');
+        hasAvatarColumn = true;
+      }
+    } catch (e) {
+      console.error('Error checking/creating avatar column:', e);
+    }
+    
+    // Xây dựng query động
+    const updates = [];
+    const values = [];
+    
+    if (password !== undefined) {
+      updates.push('password_hash = COALESCE(?, password_hash)');
+      values.push(password || null);
+    }
+    if (full_name !== undefined) {
+      updates.push('full_name = COALESCE(?, full_name)');
+      values.push(full_name || null);
+    }
+    if (phone !== undefined) {
+      updates.push('phone = ?');
+      values.push(phone || null);
+    }
+    if (role !== undefined) {
+      updates.push('role = COALESCE(?, role)');
+      values.push(role || null);
+    }
+    if (status !== undefined) {
+      updates.push('status = COALESCE(?, status)');
+      values.push(status || null);
+    }
+    if (avatar !== undefined && hasAvatarColumn) {
+      updates.push('avatar = ?');
+      values.push(avatar || null);
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'Không có dữ liệu để cập nhật' });
+    }
+    
+    values.push(id);
+    const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+    
+    await pool.query(query, values);
     res.json({ success: true });
   } catch (e) {
     console.error('Update user error:', e);
@@ -809,6 +889,30 @@ app.get('/api/products', async (req, res) => {
     const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
     const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '12', 10) || 12, 1), 100);
     const offset = (page - 1) * pageSize;
+    const categorySlug = req.query.category || null;
+
+    // Xây dựng query với filter category nếu có
+    let categoryFilter = '';
+    let categoryParams = [];
+    
+    if (categorySlug) {
+      // Tìm category_id từ slug
+      const [categoryRows] = await pool.query(
+        'SELECT id FROM categories WHERE slug = ? LIMIT 1',
+        [categorySlug]
+      );
+      
+      if (categoryRows.length > 0) {
+        const categoryId = categoryRows[0].id;
+        categoryFilter = `
+          INNER JOIN product_category pc ON p.id = pc.product_id AND pc.category_id = ?
+        `;
+        categoryParams = [categoryId];
+      } else {
+        // Nếu không tìm thấy category, trả về danh sách rỗng
+        return res.json({ data: [], total: 0, page, pageSize });
+      }
+    }
 
     const [rows] = await pool.query(
       `SELECT p.id, p.name, p.slug, p.sku, p.description, p.brand, p.is_active, p.created_at, p.updated_at,
@@ -818,11 +922,12 @@ app.get('/api/products', async (req, res) => {
               MIN(pv.compare_price) as min_compare_price,
               MAX(pv.compare_price) as max_compare_price
        FROM products p
+       ${categoryFilter}
        LEFT JOIN product_variants pv ON p.id = pv.product_id AND pv.is_active = 1
        GROUP BY p.id
        ORDER BY p.id DESC
        LIMIT ? OFFSET ?`,
-      [pageSize, offset]
+      [...categoryParams, pageSize, offset]
     );
 
     // Thêm đường dẫn đầy đủ cho ảnh và xử lý giá
@@ -839,7 +944,16 @@ app.get('/api/products', async (req, res) => {
       } : null
     }));
 
-    const [countRows] = await pool.query('SELECT COUNT(1) as total FROM products');
+    // Đếm tổng số sản phẩm với filter category
+    let countQuery = 'SELECT COUNT(DISTINCT p.id) as total FROM products p';
+    let countParams = [];
+    
+    if (categorySlug && categoryFilter) {
+      countQuery += categoryFilter;
+      countParams = categoryParams;
+    }
+    
+    const [countRows] = await pool.query(countQuery, countParams);
     const total = countRows[0]?.total || 0;
 
     res.json({ data: productsWithFullImageUrl, total, page, pageSize });
@@ -888,7 +1002,27 @@ app.get('/api/products/:id', async (req, res) => {
       url: buildFullUrl(req, image.url)
     }));
 
-    res.json({ product: productWithFullImageUrl, variants, images: imagesWithFullUrl });
+    // Lấy category_id từ bảng product_category (lấy category_id đầu tiên nếu có nhiều)
+    let categoryId = null;
+    try {
+      const [categories] = await pool.query(
+        'SELECT category_id FROM product_category WHERE product_id = ? LIMIT 1',
+        [id]
+      );
+      if (categories.length > 0) {
+        categoryId = categories[0].category_id;
+      }
+    } catch (catErr) {
+      console.error('Error fetching category_id:', catErr);
+      // Không fail toàn bộ request nếu category_id lỗi
+    }
+
+    const productWithCategory = {
+      ...productWithFullImageUrl,
+      category_id: categoryId
+    };
+
+    res.json({ product: productWithCategory, variants, images: imagesWithFullUrl });
   } catch (e) {
     console.error('Product detail error:', e);
     res.status(500).json({ error: 'Failed to fetch product detail', detail: String(e) });
@@ -1151,6 +1285,58 @@ app.post('/api/orders/:id/status', async (req, res) => {
   }
 });
 
+// Cập nhật trạng thái thanh toán (admin)
+app.post('/api/orders/:id/payment-status', async (req, res) => {
+  try {
+    const isAdmin = req.query.admin === '1';
+    if (!isAdmin) return res.status(403).json({ error: 'Yêu cầu quyền admin' });
+
+    const orderId = Number(req.params.id);
+    if (!Number.isFinite(orderId)) return res.status(400).json({ error: 'Invalid order id' });
+
+    const { payment_status } = req.body;
+    if (!payment_status) return res.status(400).json({ error: 'Thiếu trạng thái thanh toán' });
+
+    const validStatuses = ['pending', 'success', 'failed', 'refunded'];
+    if (!validStatuses.includes(payment_status)) {
+      return res.status(400).json({ error: 'Trạng thái thanh toán không hợp lệ' });
+    }
+
+    await pool.query('UPDATE orders SET payment_status = ?, updated_at = NOW() WHERE id = ?', [payment_status, orderId]);
+
+    res.json({ success: true, message: 'Cập nhật trạng thái thanh toán thành công' });
+  } catch (e) {
+    console.error('Update payment status error:', e);
+    res.status(500).json({ error: 'Cập nhật trạng thái thanh toán thất bại', detail: String(e) });
+  }
+});
+
+// Cập nhật trạng thái vận chuyển (admin)
+app.post('/api/orders/:id/shipping-status', async (req, res) => {
+  try {
+    const isAdmin = req.query.admin === '1';
+    if (!isAdmin) return res.status(403).json({ error: 'Yêu cầu quyền admin' });
+
+    const orderId = Number(req.params.id);
+    if (!Number.isFinite(orderId)) return res.status(400).json({ error: 'Invalid order id' });
+
+    const { shipping_status } = req.body;
+    if (!shipping_status) return res.status(400).json({ error: 'Thiếu trạng thái vận chuyển' });
+
+    const validStatuses = ['pending', 'picked_up', 'in_transit', 'delivered', 'failed'];
+    if (!validStatuses.includes(shipping_status)) {
+      return res.status(400).json({ error: 'Trạng thái vận chuyển không hợp lệ' });
+    }
+
+    await pool.query('UPDATE orders SET shipping_status = ?, updated_at = NOW() WHERE id = ?', [shipping_status, orderId]);
+
+    res.json({ success: true, message: 'Cập nhật trạng thái vận chuyển thành công' });
+  } catch (e) {
+    console.error('Update shipping status error:', e);
+    res.status(500).json({ error: 'Cập nhật trạng thái vận chuyển thất bại', detail: String(e) });
+  }
+});
+
 // Users API endpoints
 // Lấy danh sách users (admin)
 app.get('/api/users', async (req, res) => {
@@ -1229,6 +1415,11 @@ app.get('/api/users', async (req, res) => {
           await pool.query('ALTER TABLE users ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
         }
         
+        if (!columnNames.includes('avatar')) {
+          console.log('Adding missing column: avatar');
+          await pool.query('ALTER TABLE users ADD COLUMN avatar VARCHAR(512) DEFAULT NULL');
+        }
+        
         console.log('Users table structure updated');
       } catch (alterError) {
         console.error('Error updating users table structure:', alterError);
@@ -1238,19 +1429,59 @@ app.get('/api/users', async (req, res) => {
 
     // Lấy danh sách users với xử lý cột thiếu
     try {
-      const [rows] = await pool.query(`
+      // Kiểm tra xem có cột status không
+      let hasStatusColumn = false;
+      let hasPhoneColumn = false;
+      let hasAvatarColumn = false;
+      try {
+        const [columns] = await pool.query('DESCRIBE users');
+        const columnNames = columns.map(col => col.Field);
+        hasStatusColumn = columnNames.includes('status');
+        hasPhoneColumn = columnNames.includes('phone');
+        hasAvatarColumn = columnNames.includes('avatar');
+      } catch (e) {
+        console.log('Could not check columns:', e);
+      }
+
+      let query = `
         SELECT id, email, full_name, 
                COALESCE(role, 'user') as role,
-               COALESCE(is_active, TRUE) as is_active,
                COALESCE(created_at, NOW()) as created_at, 
                COALESCE(updated_at, NOW()) as updated_at
+      `;
+      
+      if (hasPhoneColumn) {
+        query += `, phone`;
+      }
+      
+      if (hasAvatarColumn) {
+        query += `, avatar`;
+      }
+      
+      if (hasStatusColumn) {
+        query += `, COALESCE(status, 'active') as status`;
+      } else {
+        // Map is_active thành status
+        query += `, CASE WHEN COALESCE(is_active, TRUE) = TRUE THEN 'active' ELSE 'inactive' END as status`;
+      }
+      
+      query += `
         FROM users
         ORDER BY COALESCE(created_at, NOW()) DESC
-      `);
+      `;
 
-      console.log(`Found ${rows.length} users`);
+      const [rows] = await pool.query(query);
+
+      // Đảm bảo tất cả users có status
+      const rowsWithStatus = rows.map(user => ({
+        ...user,
+        status: user.status || 'active',
+        phone: user.phone || null
+      }));
+
+      console.log(`Found ${rowsWithStatus.length} users`);
       res.json({ 
-        data: rows,
+        data: rowsWithStatus,
         message: usersTableExists ? 'Bảng users đã tồn tại' : 'Bảng users vừa được tạo mới'
       });
     } catch (queryError) {
@@ -1268,7 +1499,8 @@ app.get('/api/users', async (req, res) => {
         const rowsWithDefaults = basicRows.map(user => ({
           ...user,
           role: 'user',
-          is_active: true,
+          status: 'active',
+          phone: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }));
@@ -2066,7 +2298,7 @@ app.post('/api/products', async (req, res) => {
     const isAdmin = req.query.admin === '1';
     if (!isAdmin) return res.status(403).json({ error: 'Yêu cầu quyền admin' });
 
-    const { name, slug, sku, description, product_img, product_img_alt, product_img_title, has_images, brand, is_active } = req.body || {};
+    const { name, slug, sku, description, product_img, product_img_alt, product_img_title, has_images, brand, is_active, category_id } = req.body || {};
     if (!name || !slug) return res.status(400).json({ error: 'Thiếu name hoặc slug' });
 
     const [result] = await pool.query(
@@ -2075,7 +2307,22 @@ app.post('/api/products', async (req, res) => {
       [name, slug, sku || null, description || null, product_img || null, product_img_alt || null, product_img_title || null, has_images ?? false, brand || null, is_active ?? true]
     );
 
-    res.json({ success: true, id: result.insertId });
+    const productId = result.insertId;
+
+    // Xử lý category_id: lưu vào bảng product_category
+    if (category_id && Number.isFinite(Number(category_id))) {
+      try {
+        await pool.query(
+          'INSERT INTO product_category (product_id, category_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE category_id = ?',
+          [productId, category_id, category_id]
+        );
+      } catch (catErr) {
+        console.error('Error saving category_id:', catErr);
+        // Không fail toàn bộ request nếu category_id lỗi
+      }
+    }
+
+    res.json({ success: true, id: productId });
   } catch (e) {
     console.error('Create product error:', e);
     res.status(500).json({ error: 'Tạo sản phẩm thất bại', detail: String(e) });
@@ -2132,6 +2379,27 @@ app.put('/api/products/:id', async (req, res) => {
     const sql = `UPDATE products SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = ?`;
     values.push(id);
     await pool.query(sql, values);
+
+    // Xử lý category_id: cập nhật bảng product_category
+    if (payload.category_id !== undefined) {
+      try {
+        const categoryId = payload.category_id ? Number(payload.category_id) : null;
+        if (categoryId && Number.isFinite(categoryId)) {
+          // Xóa các bản ghi cũ và thêm bản ghi mới
+          await pool.query('DELETE FROM product_category WHERE product_id = ?', [id]);
+          await pool.query(
+            'INSERT INTO product_category (product_id, category_id) VALUES (?, ?)',
+            [id, categoryId]
+          );
+        } else {
+          // Nếu category_id là null hoặc rỗng, xóa tất cả categories của sản phẩm
+          await pool.query('DELETE FROM product_category WHERE product_id = ?', [id]);
+        }
+      } catch (catErr) {
+        console.error('Error updating category_id:', catErr);
+        // Không fail toàn bộ request nếu category_id lỗi
+      }
+    }
 
     res.json({ success: true, message: 'Cập nhật sản phẩm thành công' });
   } catch (e) {
@@ -2204,7 +2472,7 @@ app.post('/api/products/:id', async (req, res) => {
     if (!method) return res.status(400).json({ error: 'Thiếu _method' });
 
     if (method === 'PUT') {
-      const { name, slug, sku, description, product_img, product_img_alt, product_img_title, has_images, brand, is_active } = req.body || {};
+      const { name, slug, sku, description, product_img, product_img_alt, product_img_title, has_images, brand, is_active, category_id } = req.body || {};
       await pool.query(
         `UPDATE products SET 
           name = COALESCE(?, name),
@@ -2221,6 +2489,28 @@ app.post('/api/products/:id', async (req, res) => {
         WHERE id = ?`,
         [name ?? null, slug ?? null, sku ?? null, description ?? null, product_img ?? null, product_img_alt ?? null, product_img_title ?? null, has_images, brand ?? null, is_active, id]
       );
+
+      // Xử lý category_id: cập nhật bảng product_category
+      if (category_id !== undefined) {
+        try {
+          const catId = category_id ? Number(category_id) : null;
+          if (catId && Number.isFinite(catId)) {
+            // Xóa các bản ghi cũ và thêm bản ghi mới
+            await pool.query('DELETE FROM product_category WHERE product_id = ?', [id]);
+            await pool.query(
+              'INSERT INTO product_category (product_id, category_id) VALUES (?, ?)',
+              [id, catId]
+            );
+          } else {
+            // Nếu category_id là null hoặc rỗng, xóa tất cả categories của sản phẩm
+            await pool.query('DELETE FROM product_category WHERE product_id = ?', [id]);
+          }
+        } catch (catErr) {
+          console.error('Error updating category_id:', catErr);
+          // Không fail toàn bộ request nếu category_id lỗi
+        }
+      }
+
       return res.json({ success: true, message: 'Cập nhật sản phẩm thành công' });
     }
 
@@ -2385,7 +2675,7 @@ app.get('/api/orders/user/:id', async (req, res) => {
     // Dò cột hiện có của bảng orders để select an toàn
     let selectColumns = [
       'id','user_id','code','status','subtotal','discount','shipping_fee','tax','total','currency',
-      'payment_status','shipping_status','placed_at','created_at','updated_at','note'
+      'payment_status','shipping_status','placed_at','created_at','updated_at','note','shipping_address_json'
     ];
     try {
       const [cols] = await pool.query('DESCRIBE orders');
@@ -2507,6 +2797,10 @@ app.post('/api/orders', async (req, res) => {
   try {
     const body = req.body || {};
     const userId = Number(body.user_id) || null;
+    const paymentMethodRaw = String(body.payment_method || '').toLowerCase();
+    const paymentMethod = (paymentMethodRaw === 'momo' || paymentMethodRaw === 'cod' || paymentMethodRaw === 'bank_transfer' || paymentMethodRaw === 'bank')
+      ? paymentMethodRaw
+      : 'cod';
     const items = Array.isArray(body.items) ? body.items : [];
     if (items.length === 0) {
       return res.status(400).json({ error: 'Giỏ hàng trống' });
@@ -2543,7 +2837,7 @@ app.post('/api/orders', async (req, res) => {
       tax,
       total,
       currency: body.currency || 'VND',
-      payment_status: body.payment_method === 'cod' ? 'pending' : 'pending',
+      payment_status: 'pending',
       shipping_status: 'pending',
       placed_at: new Date(),
       note: body.note || null,
@@ -2559,6 +2853,19 @@ app.post('/api/orders', async (req, res) => {
 
     const [orderResult] = await connection.query(orderSql, orderValues);
     const orderId = orderResult.insertId;
+
+    // (Optional) tạo bản ghi payment nếu bảng payments tồn tại
+    // method trong DB: cod | bank | momo
+    try {
+      await connection.query('SELECT 1 FROM payments LIMIT 1');
+      const methodDb = paymentMethod === 'bank_transfer' ? 'bank' : paymentMethod;
+      await connection.query(
+        'INSERT INTO payments (order_id, method, amount, status, payload_json) VALUES (?, ?, ?, ?, ?)',
+        [orderId, methodDb, total, 'pending', JSON.stringify({ created_from: 'checkout', payment_method: paymentMethod })]
+      );
+    } catch {
+      // ignore nếu chưa có bảng payments / schema khác
+    }
 
     // DESCRIBE order_items
     let itemColumns = [];
@@ -2634,6 +2941,262 @@ app.post('/api/orders', async (req, res) => {
     try { await connection.rollback(); } catch {}
     console.error('Create order error:', e);
     res.status(500).json({ error: 'Tạo đơn hàng thất bại', detail: String(e) });
+  } finally {
+    connection.release();
+  }
+});
+
+// ===== MoMo Payments APIs =====
+// POST /api/payments/momo/create { order_id }
+app.post('/api/payments/momo/create', async (req, res) => {
+  try {
+    const { order_id } = req.body || {};
+    const orderId = Number(order_id);
+    if (!Number.isFinite(orderId)) return res.status(400).json({ error: 'order_id không hợp lệ' });
+
+    const [orders] = await pool.query('SELECT id, code, total, currency, payment_status, status FROM orders WHERE id = ? LIMIT 1', [orderId]);
+    const order = orders?.[0];
+    if (!order) return res.status(404).json({ error: 'Order không tồn tại' });
+
+    if (String(order.currency || 'VND').toUpperCase() !== 'VND') {
+      return res.status(400).json({ error: 'MoMo chỉ hỗ trợ VND trong demo này' });
+    }
+
+    // MoMo yêu cầu amount dạng số nguyên (VND)
+    const amount = String(Math.round(Number(order.total || 0)));
+    if (Number(amount) <= 0) return res.status(400).json({ error: 'Số tiền không hợp lệ' });
+
+    // Dùng order.code làm orderId bên MoMo để map ngược về DB
+    const momoOrderId = String(order.code);
+    const orderInfo = `Thanh toán đơn hàng ${momoOrderId}`;
+    const extraData = Buffer.from(JSON.stringify({ order_id: order.id })).toString('base64');
+
+    const { endpoint, requestId, payload } = buildCreatePaymentPayload({
+      amount,
+      orderId: momoOrderId,
+      orderInfo,
+      extraData,
+    });
+
+    // gọi MoMo gateway
+    const momoResp = await fetchJsonWithTimeout(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }, 30000);
+
+    const payUrl = momoResp?.payUrl || momoResp?.data?.payUrl;
+    if (!payUrl) {
+      return res.status(500).json({ error: 'Không lấy được payUrl từ MoMo', momo: momoResp });
+    }
+
+    // Upsert payment record (nếu có bảng payments)
+    try {
+      await pool.query('SELECT 1 FROM payments LIMIT 1');
+      const [existing] = await pool.query('SELECT id FROM payments WHERE order_id = ? AND method = "momo" ORDER BY id DESC LIMIT 1', [order.id]);
+      const payloadJson = {
+        momo: momoResp,
+        requestId,
+        momoOrderId,
+        created_at: new Date().toISOString(),
+      };
+      if (existing?.[0]?.id) {
+        await pool.query(
+          'UPDATE payments SET status = "pending", amount = ?, payload_json = ? WHERE id = ?',
+          [Number(order.total || 0), JSON.stringify(payloadJson), existing[0].id]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO payments (order_id, method, amount, status, transaction_ref, payload_json) VALUES (?, "momo", ?, "pending", ?, ?)',
+          [order.id, Number(order.total || 0), momoOrderId, JSON.stringify(payloadJson)]
+        );
+      }
+    } catch {
+      // ignore nếu chưa có bảng payments
+    }
+
+    return res.json({ success: true, payUrl, momo: momoResp, order: { id: order.id, code: order.code } });
+  } catch (e) {
+    console.error('Create MoMo payment error:', e?.detail || e);
+    return res.status(500).json({ error: 'Tạo thanh toán MoMo thất bại', detail: String(e?.detail || e?.message || e) });
+  }
+});
+
+// IPN endpoint: MoMo server sẽ POST kết quả thanh toán vào đây
+app.post('/api/payments/momo/ipn', async (req, res) => {
+  const body = req.body || {};
+  try {
+    const verify = verifyMomoIpnSignature(body);
+    if (!verify.ok) {
+      console.warn('MoMo IPN signature mismatch', { expected: verify.expected, actual: verify.actual });
+      return res.status(400).json({ status: 'invalid_signature' });
+    }
+
+    const momoOrderId = String(body.orderId || '');
+    const resultCode = Number(body.resultCode ?? -1);
+    const transId = body.transId != null ? String(body.transId) : null;
+
+    // Map order theo code
+    const [orders] = await pool.query('SELECT id, code, payment_status, status FROM orders WHERE code = ? LIMIT 1', [momoOrderId]);
+    const order = orders?.[0];
+
+    if (order) {
+      if (resultCode === 0) {
+        await pool.query(
+          'UPDATE orders SET payment_status = "success", status = IF(status="pending","paid",status), updated_at = NOW() WHERE id = ?',
+          [order.id]
+        );
+      } else {
+        await pool.query(
+          'UPDATE orders SET payment_status = "failed", updated_at = NOW() WHERE id = ?',
+          [order.id]
+        );
+      }
+
+      // Update payments nếu có
+      try {
+        await pool.query('SELECT 1 FROM payments LIMIT 1');
+        const status = resultCode === 0 ? 'success' : 'failed';
+
+        // Merge payload_json ở phía Node để tránh phụ thuộc JSON_SET/CAST trong MySQL prepared statement
+        const [pays] = await pool.query(
+          'SELECT id, payload_json FROM payments WHERE order_id = ? AND method = "momo" ORDER BY id DESC LIMIT 1',
+          [order.id]
+        );
+        const currentPayload = pays?.[0]?.payload_json || null;
+        const mergedPayload = {
+          ...(currentPayload && typeof currentPayload === 'object' ? currentPayload : {}),
+          ipn: body,
+        };
+
+        if (pays?.[0]?.id) {
+          await pool.query(
+            `UPDATE payments
+             SET status = ?, transaction_ref = COALESCE(?, transaction_ref),
+                 paid_at = CASE WHEN ?="success" THEN NOW() ELSE paid_at END,
+                 payload_json = ?
+             WHERE id = ?`,
+            [status, transId, status, JSON.stringify(mergedPayload), pays[0].id]
+          );
+        } else {
+          // Nếu không có payment momo trước đó, tạo mới để lưu lịch sử
+          await pool.query(
+            `INSERT INTO payments (order_id, method, amount, status, transaction_ref, paid_at, payload_json)
+             VALUES (?, "momo", 0, ?, ?, CASE WHEN ?="success" THEN NOW() ELSE NULL END, ?)`,
+            [order.id, status, transId, status, JSON.stringify(mergedPayload)]
+          );
+        }
+      } catch {}
+    } else {
+      console.warn('MoMo IPN: không tìm thấy order theo code', momoOrderId);
+    }
+
+    return res.json({ status: 'OK' });
+  } catch (e) {
+    console.error('MoMo IPN handler error:', e);
+    // MoMo cần HTTP 200; vẫn trả OK để tránh retry storm khi server lỗi tạm
+    return res.json({ status: 'OK' });
+  }
+});
+
+// ===== Addresses (saved shipping address) =====
+// GET default address for user
+app.get('/api/users/:id/address-default', async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    if (!Number.isFinite(userId)) return res.status(400).json({ error: 'Invalid user id' });
+
+    // Nếu chưa có bảng addresses thì trả rỗng
+    try {
+      await pool.query('SELECT 1 FROM addresses LIMIT 1');
+    } catch {
+      return res.json({ data: null });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT id, user_id, full_name, phone, line1, ward, district, city, is_default, created_at
+       FROM addresses
+       WHERE user_id = ?
+       ORDER BY is_default DESC, id DESC
+       LIMIT 1`,
+      [userId]
+    );
+
+    return res.json({ data: rows?.[0] || null });
+  } catch (e) {
+    console.error('Get default address error:', e);
+    return res.status(500).json({ error: 'Không thể lấy địa chỉ mặc định', detail: String(e) });
+  }
+});
+
+// Upsert default address for user
+app.post('/api/users/:id/address-default', async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const userId = Number(req.params.id);
+    if (!Number.isFinite(userId)) return res.status(400).json({ error: 'Invalid user id' });
+
+    const { full_name, phone, line1, ward, district, city } = req.body || {};
+    if (!full_name || !phone || !line1) {
+      return res.status(400).json({ error: 'Thiếu full_name, phone hoặc line1' });
+    }
+
+    // Nếu chưa có bảng addresses thì tạo nhanh theo schema tối thiểu
+    try {
+      await connection.query('SELECT 1 FROM addresses LIMIT 1');
+    } catch {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS addresses (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+          user_id BIGINT UNSIGNED NOT NULL,
+          full_name VARCHAR(191) NOT NULL,
+          phone VARCHAR(32) NOT NULL,
+          line1 VARCHAR(255) NOT NULL,
+          ward VARCHAR(191) DEFAULT NULL,
+          district VARCHAR(191) DEFAULT NULL,
+          city VARCHAR(191) DEFAULT NULL,
+          is_default TINYINT(1) NOT NULL DEFAULT 0,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY fk_addresses_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+      `);
+    }
+
+    await connection.beginTransaction();
+
+    // clear default flag
+    await connection.query('UPDATE addresses SET is_default = 0 WHERE user_id = ?', [userId]);
+
+    // update existing default if any (after clearing it won't match), so try latest row
+    const [existing] = await connection.query(
+      'SELECT id FROM addresses WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+      [userId]
+    );
+
+    if (existing?.[0]?.id) {
+      await connection.query(
+        `UPDATE addresses
+         SET full_name = ?, phone = ?, line1 = ?, ward = ?, district = ?, city = ?, is_default = 1
+         WHERE id = ?`,
+        [full_name, phone, line1, ward || null, district || null, city || null, existing[0].id]
+      );
+      await connection.commit();
+      return res.json({ success: true, id: existing[0].id });
+    }
+
+    const [result] = await connection.query(
+      `INSERT INTO addresses (user_id, full_name, phone, line1, ward, district, city, is_default)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+      [userId, full_name, phone, line1, ward || null, district || null, city || null]
+    );
+
+    await connection.commit();
+    return res.json({ success: true, id: result.insertId });
+  } catch (e) {
+    try { await connection.rollback(); } catch {}
+    console.error('Save default address error:', e);
+    return res.status(500).json({ error: 'Không thể lưu địa chỉ mặc định', detail: String(e) });
   } finally {
     connection.release();
   }

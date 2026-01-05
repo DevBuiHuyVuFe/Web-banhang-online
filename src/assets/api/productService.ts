@@ -2,8 +2,12 @@ import type { Paginated, Product, ProductImage, ProductVariant, ID } from './typ
 import { httpGet } from './http';
 
 export const ProductService = {
-  async getList(page = 1, pageSize = 12): Promise<Paginated<Product>> {
-    return httpGet<Paginated<Product>>('/products', { page, pageSize });
+  async getList(page = 1, pageSize = 12, category?: string | null): Promise<Paginated<Product>> {
+    const params: any = { page, pageSize };
+    if (category) {
+      params.category = category;
+    }
+    return httpGet<Paginated<Product>>('/products', params);
   },
 
   async getById(id: ID): Promise<Product | undefined> {

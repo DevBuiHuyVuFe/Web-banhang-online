@@ -5,6 +5,7 @@ export interface User {
   email: string;
   full_name: string;
   phone?: string | null;
+  avatar?: string | null;
   role: 'user' | 'admin';
   status: 'active' | 'inactive' | 'banned';
   created_at: string;

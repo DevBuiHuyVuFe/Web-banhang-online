@@ -9,6 +9,7 @@ import Login from '../pages/Login';
 import Register from '../pages/Register';
 import Profile from '../pages/Profile';
 import Checkout from '../pages/Checkout';
+import MomoReturn from '../pages/MomoReturn';
 import NotFound from '../pages/NotFound';
 import Orders from '../pages/Orders';
 import About from '../pages/About';
@@ -39,6 +40,7 @@ const AppRouter: React.FC = () => {
           <Route path="products/:id" element={<ProductDetail />} />
           <Route path="cart" element={<Cart />} />
           <Route path="checkout" element={<Checkout />} />
+          <Route path="payment/momo/return" element={<MomoReturn />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route path="profile" element={<Profile />} />

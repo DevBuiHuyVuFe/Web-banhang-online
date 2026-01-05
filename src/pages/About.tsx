@@ -1,4 +1,5 @@
 import React from 'react';
+import { RocketIcon, TargetIcon, SparklesIcon, DiamondIcon, HandshakeIcon, ShoppingCartIcon, TruckIcon, MoneyIcon, ShieldIcon, ChartBarIcon } from '../components/Icons';
 
 const About: React.FC = () => {
   return (
@@ -42,7 +43,7 @@ const About: React.FC = () => {
             <div className="relative">
               <div className="bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl p-8 text-white">
                 <div className="text-center">
-                  <div className="text-6xl mb-4">🚀</div>
+                  <RocketIcon className="w-16 h-16 mx-auto mb-4 text-white" />
                   <h3 className="text-2xl font-bold mb-2">Thành Lập 2024</h3>
                   <p className="text-blue-100">Bắt đầu hành trình phục vụ khách hàng</p>
                 </div>
@@ -64,7 +65,7 @@ const About: React.FC = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="bg-white rounded-xl shadow-lg p-8 border-l-4 border-blue-500">
-              <div className="text-4xl mb-4">🎯</div>
+              <TargetIcon className="w-10 h-10 mb-4 text-blue-500" />
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Sứ Mệnh</h3>
               <p className="text-gray-600">
                 Cung cấp nền tảng mua sắm trực tuyến an toàn, tiện lợi và đáng tin cậy, 
@@ -73,7 +74,7 @@ const About: React.FC = () => {
             </div>
             
             <div className="bg-white rounded-xl shadow-lg p-8 border-l-4 border-purple-500">
-              <div className="text-4xl mb-4">🌟</div>
+              <SparklesIcon className="w-10 h-10 mb-4 text-purple-500" />
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Tầm Nhìn</h3>
               <p className="text-gray-600">
                 Trở thành nền tảng thương mại điện tử hàng đầu, được yêu thích và tin tưởng 
@@ -97,7 +98,7 @@ const About: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <div className="text-3xl">💎</div>
+                <DiamondIcon className="w-10 h-10 text-blue-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">Chất Lượng</h3>
               <p className="text-gray-600">
@@ -107,7 +108,7 @@ const About: React.FC = () => {
             
             <div className="text-center">
               <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <div className="text-3xl">🤝</div>
+                <HandshakeIcon className="w-10 h-10 text-green-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">Tin Cậy</h3>
               <p className="text-gray-600">
@@ -117,7 +118,7 @@ const About: React.FC = () => {
             
             <div className="text-center">
               <div className="bg-purple-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <div className="text-3xl">🚀</div>
+                <RocketIcon className="w-10 h-10 text-purple-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">Đổi Mới</h3>
               <p className="text-gray-600">
@@ -140,7 +141,7 @@ const About: React.FC = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-              <div className="text-4xl mb-4">🛒</div>
+              <ShoppingCartIcon className="w-10 h-10 mx-auto mb-4 text-blue-600" />
               <h3 className="text-lg font-bold text-gray-900 mb-2">Đa Dạng Sản Phẩm</h3>
               <p className="text-gray-600 text-sm">
                 Hàng trăm sản phẩm từ các thương hiệu uy tín
@@ -148,7 +149,7 @@ const About: React.FC = () => {
             </div>
             
             <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-              <div className="text-4xl mb-4">🚚</div>
+              <TruckIcon className="w-10 h-10 mx-auto mb-4 text-green-600" />
               <h3 className="text-lg font-bold text-gray-900 mb-2">Giao Hàng Nhanh</h3>
               <p className="text-gray-600 text-sm">
                 Giao hàng trong 1-3 ngày làm việc
@@ -156,7 +157,7 @@ const About: React.FC = () => {
             </div>
             
             <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-              <div className="text-4xl mb-4">💰</div>
+              <MoneyIcon className="w-10 h-10 mx-auto mb-4 text-yellow-600" />
               <h3 className="text-lg font-bold text-gray-900 mb-2">Giá Cả Hợp Lý</h3>
               <p className="text-gray-600 text-sm">
                 Giá tốt nhất với nhiều ưu đãi hấp dẫn
@@ -164,7 +165,7 @@ const About: React.FC = () => {
             </div>
             
             <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-              <div className="text-4xl mb-4">🛡️</div>
+              <ShieldIcon className="w-10 h-10 mx-auto mb-4 text-indigo-600" />
               <h3 className="text-lg font-bold text-gray-900 mb-2">Bảo Mật Tuyệt Đối</h3>
               <p className="text-gray-600 text-sm">
                 Thông tin cá nhân được bảo vệ an toàn

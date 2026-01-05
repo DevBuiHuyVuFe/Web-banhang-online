@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthService } from '../assets/api/authService';
+import { BoxIcon, LabelIcon, ListIcon, VoucherIcon, StarIcon, SettingsIcon, UserIcon } from '../components/Icons';
 
 const AdminLayout: React.FC = () => {
   const location = useLocation();
@@ -40,14 +41,14 @@ const AdminLayout: React.FC = () => {
   }, [navigate, location.pathname]);
 
   const menuItems = [
-    { path: '/admin/products', label: 'Sản phẩm', icon: '📦' },
-    { path: '/admin/categories', label: 'Danh mục', icon: '🏷️' },
-    { path: '/admin/users', label: 'Users', icon: '👥' },
-    { path: '/admin/orders', label: 'Đơn hàng', icon: '📋' },
-    { path: '/admin/vouchers', label: 'Vouchers', icon: '🎫' },
-    { path: '/admin/reviews', label: 'Đánh giá', icon: '⭐' },
-    { path: '/admin/inventory', label: 'Kho hàng', icon: '📊' },
-    { path: '/admin/variants', label: 'Biến thể SP', icon: '🔧' },
+    { path: '/admin/products', label: 'Sản phẩm', icon: BoxIcon },
+    { path: '/admin/categories', label: 'Danh mục', icon: LabelIcon },
+    { path: '/admin/users', label: 'Users', icon: UserIcon },
+    { path: '/admin/orders', label: 'Đơn hàng', icon: ListIcon },
+    { path: '/admin/vouchers', label: 'Vouchers', icon: VoucherIcon },
+    { path: '/admin/reviews', label: 'Đánh giá', icon: StarIcon },
+    { path: '/admin/inventory', label: 'Kho hàng', icon: ListIcon },
+    { path: '/admin/variants', label: 'Biến thể SP', icon: SettingsIcon },
   ];
 
   // Hiển thị loading khi đang kiểm tra quyền
@@ -108,7 +109,7 @@ const AdminLayout: React.FC = () => {
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors`}
                   >
-                    <span className="mr-3 text-lg">{item.icon}</span>
+                    {React.createElement(item.icon, { className: "mr-3 w-5 h-5" })}
                     {item.label}
                   </Link>
                 );

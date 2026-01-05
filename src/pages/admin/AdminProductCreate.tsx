@@ -2,6 +2,7 @@
 import { AdminService } from '../../assets/api/adminService';
 import { CategoryService } from '../../assets/api/categoryService';
 import type { Category, ProductImage } from '../../assets/api/types';
+import { TrashIcon, ClockIcon, CheckIcon, XIcon, FileIcon, PlusIcon, DocumentIcon } from '../../components/Icons';
 
 interface ProductFormData {
   name: string;
@@ -333,6 +334,7 @@ const AdminProductCreate: React.FC = () => {
         has_images: form.has_images,
         brand: form.brand?.trim() || undefined,
         is_active: form.is_active,
+        category_id: form.category_id || undefined,
       });
       
       // Sau khi tạo sản phẩm thành công, thêm ảnh con
@@ -414,13 +416,15 @@ const AdminProductCreate: React.FC = () => {
       <h1 className="text-2xl font-bold mb-6">Tạo sản phẩm mới</h1>
 
       {message && (
-        <div className="mb-4 p-4 rounded-lg bg-green-50 text-green-700 border border-green-200">
-          ✅ {message}
+        <div className="mb-4 p-4 rounded-lg bg-green-50 text-green-700 border border-green-200 flex items-center">
+          <CheckIcon className="w-5 h-5 mr-2" />
+          {message}
         </div>
       )}
       {error && (
-        <div className="mb-4 p-4 rounded-lg bg-red-50 text-red-700 border border-red-200">
-          ❌ {error}
+        <div className="mb-4 p-4 rounded-lg bg-red-50 text-red-700 border border-red-200 flex items-center">
+          <XIcon className="w-5 h-5 mr-2" />
+          {error}
         </div>
       )}
 
@@ -531,7 +535,8 @@ const AdminProductCreate: React.FC = () => {
                   imageMode === 'file' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                 }`}
               >
-                📁 Upload File
+                <FileIcon className="w-4 h-4 mr-1 inline" />
+                Upload File
               </button>
             </div>
           </div>
@@ -607,7 +612,8 @@ const AdminProductCreate: React.FC = () => {
                   onClick={removeSelectedFile}
                   className="text-sm text-red-600 hover:text-red-800"
                 >
-                  🗑️ Xóa ảnh
+                  <TrashIcon className="w-4 h-4 mr-1 inline" />
+                  Xóa ảnh
                 </button>
               </div>
               <div className="relative">
@@ -626,8 +632,9 @@ const AdminProductCreate: React.FC = () => {
                 )}
               </div>
               {selectedFile && (
-                <p className="text-xs text-green-600 mt-2">
-                  📁 {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                <p className="text-xs text-green-600 mt-2 flex items-center">
+                  <FileIcon className="w-3 h-3 mr-1" />
+                  {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
                 </p>
               )}
             </div>
@@ -715,7 +722,8 @@ const AdminProductCreate: React.FC = () => {
                     imageMode === 'file' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                   }`}
                 >
-                  📁 Upload File
+                  <FileIcon className="w-4 h-4 mr-1 inline" />
+                  Upload File
                 </button>
               </div>
               
@@ -778,7 +786,8 @@ const AdminProductCreate: React.FC = () => {
                           onClick={removeImageFile}
                           className="text-sm text-red-600 hover:text-red-800"
                         >
-                          🗑️ Xóa file
+                          <TrashIcon className="w-4 h-4 mr-1 inline" />
+                          Xóa file
                         </button>
                       </div>
                       <div className="flex items-center space-x-3">
@@ -833,9 +842,10 @@ const AdminProductCreate: React.FC = () => {
               type="button"
               onClick={addProductImage}
               disabled={(imageMode === 'url' && !newImage.url.trim()) || (imageMode === 'file' && !newImage.file)}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
             >
-              ➕ Thêm ảnh con
+              <PlusIcon className="w-4 h-4 mr-1" />
+              Thêm ảnh con
             </button>
           </div>
           
@@ -876,7 +886,17 @@ const AdminProductCreate: React.FC = () => {
                               : 'bg-blue-600 text-white'
                           }`}
                         >
-                          {image.is_primary ? '⭐ Chính' : '⭐ Đặt chính'}
+                          {image.is_primary ? (
+                            <>
+                              <StarIcon className="w-4 h-4 mr-1 inline" />
+                              Chính
+                            </>
+                          ) : (
+                            <>
+                              <StarIcon className="w-4 h-4 mr-1 inline" />
+                              Đặt chính
+                            </>
+                          )}
                         </button>
                         
                         <button
@@ -884,15 +904,17 @@ const AdminProductCreate: React.FC = () => {
                           onClick={() => removeProductImage(index)}
                           className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
                         >
-                          🗑️ Xóa
+                          <TrashIcon className="w-4 h-4 mr-1 inline" />
+                          Xóa
                         </button>
                       </div>
                     </div>
                     
                     {/* Badge cho ảnh chính */}
                     {image.is_primary && (
-                      <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">
-                        ⭐ Chính
+                      <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
+                        <StarIcon className="w-3 h-3 mr-1" />
+                        Chính
                       </div>
                     )}
                     
@@ -962,7 +984,17 @@ const AdminProductCreate: React.FC = () => {
             disabled={loading}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
           >
-            {loading ? '⏳ Đang tạo...' : '✅ Tạo sản phẩm'}
+            {loading ? (
+              <>
+                <ClockIcon className="w-4 h-4 mr-1 inline" />
+                Đang tạo...
+              </>
+            ) : (
+              <>
+                <CheckIcon className="w-4 h-4 mr-1 inline" />
+                Tạo sản phẩm
+              </>
+            )}
           </button>
         </div>
       </form>

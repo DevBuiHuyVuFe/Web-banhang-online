@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { OrderService } from '../assets/api/orderService';
 import { AuthService } from '../assets/api/authService';
 import type { Order, OrderItemWithDetails } from '../assets/api/types';
+import { BoxIcon } from '../components/Icons';
 
 const Orders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -70,7 +71,7 @@ const Orders: React.FC = () => {
       setEditForm({
         note: order.note || '',
         shipping_address: {
-          fullName: shippingAddress.fullName || '',
+          fullName: shippingAddress.full_name || shippingAddress.fullName || '',
           phone: shippingAddress.phone || '',
           email: shippingAddress.email || '',
           address: shippingAddress.address || '',
@@ -88,10 +89,21 @@ const Orders: React.FC = () => {
     if (!editingOrder) return;
 
     try {
+      // Chuyển đổi format để đồng bộ với backend (fullName -> full_name)
+      const shippingAddress = {
+        full_name: editForm.shipping_address.fullName,
+        phone: editForm.shipping_address.phone,
+        email: editForm.shipping_address.email,
+        address: editForm.shipping_address.address,
+        city: editForm.shipping_address.city,
+        ward: editForm.shipping_address.ward,
+        district: editForm.shipping_address.district
+      };
+      
       const updatedOrder = {
         ...editingOrder,
         note: editForm.note,
-        shipping_address_json: JSON.stringify(editForm.shipping_address)
+        shipping_address_json: JSON.stringify(shippingAddress)
       };
 
       await OrderService.updateOrder(editingOrder.id, updatedOrder);
@@ -448,49 +460,67 @@ const Orders: React.FC = () => {
                     /* Thông tin giao hàng */
                     <div className="mb-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-4">Thông tin giao hàng</h3>
-                      {selectedOrder.shipping_address_json ? (
-                        (() => {
-                          try {
-                            const address = JSON.parse(selectedOrder.shipping_address_json);
-                            return (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <p className="text-sm text-gray-500">Họ tên</p>
-                                  <p className="text-sm text-gray-900">{address.fullName}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-500">Số điện thoại</p>
-                                  <p className="text-sm text-gray-900">{address.phone}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-500">Email</p>
-                                  <p className="text-sm text-gray-900">{address.email}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-500">Địa chỉ</p>
-                                  <p className="text-sm text-gray-900">{address.address}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-500">Thành phố</p>
-                                  <p className="text-sm text-gray-900">{address.city}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-500">Quận/Huyện</p>
-                                  <p className="text-sm text-gray-900">{address.district}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-500">Phường/Xã</p>
-                                  <p className="text-sm text-gray-900">{address.ward}</p>
-                                </div>
-                              </div>
-                            );
-                          } catch (error) {
-                            return <p className="text-sm text-gray-500">Không thể hiển thị thông tin địa chỉ</p>;
+                      {(() => {
+                        try {
+                          // Xử lý shipping_address_json - có thể là string hoặc object
+                          let address: any = null;
+                          
+                          if (selectedOrder.shipping_address_json) {
+                            if (typeof selectedOrder.shipping_address_json === 'string') {
+                              // Nếu là string, parse nó
+                              address = JSON.parse(selectedOrder.shipping_address_json);
+                            } else if (typeof selectedOrder.shipping_address_json === 'object') {
+                              // Nếu đã là object (MySQL driver đã parse), dùng trực tiếp
+                              address = selectedOrder.shipping_address_json;
+                            }
                           }
-                        })()
-                      ) : (
-                        <p className="text-sm text-gray-500">Không có thông tin địa chỉ</p>
-                      )}
+
+                          if (!address) {
+                            return <p className="text-sm text-gray-500">Không có thông tin địa chỉ</p>;
+                          }
+
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-500">Họ tên</p>
+                                <p className="text-sm text-gray-900">{address.full_name || address.fullName || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Số điện thoại</p>
+                                <p className="text-sm text-gray-900">{address.phone || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Email</p>
+                                <p className="text-sm text-gray-900">{address.email || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Địa chỉ</p>
+                                <p className="text-sm text-gray-900">{address.address || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Thành phố</p>
+                                <p className="text-sm text-gray-900">{address.city || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Quận/Huyện</p>
+                                <p className="text-sm text-gray-900">{address.district || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Phường/Xã</p>
+                                <p className="text-sm text-gray-900">{address.ward || 'N/A'}</p>
+                              </div>
+                            </div>
+                          );
+                        } catch (error) {
+                          console.error('Error parsing shipping address:', error, selectedOrder.shipping_address_json);
+                          return (
+                            <div>
+                              <p className="text-sm text-red-500 mb-2">Không thể hiển thị thông tin địa chỉ</p>
+                              <p className="text-xs text-gray-400">Raw data: {JSON.stringify(selectedOrder.shipping_address_json)}</p>
+                            </div>
+                          );
+                        }
+                      })()}
                       
                       {selectedOrder.note && (
                         <div className="mt-4">
@@ -522,8 +552,8 @@ const Orders: React.FC = () => {
                                 }}
                               />
                             ) : null}
-                            <div className="w-16 h-16 bg-gray-200 rounded-md flex items-center justify-center text-gray-500 text-2xl" style={{ display: item.product_image ? 'none' : 'flex' }}>
-                              📦
+                            <div className="w-16 h-16 bg-gray-200 rounded-md flex items-center justify-center text-gray-500" style={{ display: item.product_image ? 'none' : 'flex' }}>
+                              <BoxIcon className="w-8 h-8" />
                             </div>
                           </div>
 

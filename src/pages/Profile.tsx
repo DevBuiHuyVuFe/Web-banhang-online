@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../assets/api/authService';
+import { UserIcon } from '../components/Icons';
 
 const Profile: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editForm, setEditForm] = useState({
     full_name: '',
     email: '',
@@ -31,14 +34,38 @@ const Profile: React.FC = () => {
     setIsEditing(true);
   };
 
-  const handleSave = () => {
-    // Cập nhật thông tin user
-    const updatedUser = { ...user, ...editForm };
-    setUser(updatedUser);
-    setIsEditing(false);
-    
-    // Lưu vào localStorage (có thể cập nhật API sau)
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+  const handleSave = async () => {
+    try {
+      // Gọi API cập nhật thông tin user
+      const response = await fetch(`http://localhost:3000/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          full_name: editForm.full_name,
+          phone: editForm.phone || null
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Cập nhật thông tin thất bại');
+      }
+
+      // Cập nhật thông tin user
+      const updatedUser = { ...user, ...editForm };
+      setUser(updatedUser);
+      setIsEditing(false);
+      
+      // Cập nhật localStorage
+      AuthService.setUser(updatedUser);
+      
+      alert('Cập nhật thông tin thành công!');
+    } catch (error: any) {
+      console.error('Update profile error:', error);
+      alert('Cập nhật thông tin thất bại: ' + (error.message || 'Lỗi không xác định'));
+    }
   };
 
   const handleCancel = () => {
@@ -48,6 +75,78 @@ const Profile: React.FC = () => {
       phone: user?.phone || ''
     });
     setIsEditing(false);
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn file ảnh');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Kích thước file không được vượt quá 5MB');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      // Upload avatar
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const uploadResponse = await fetch('http://localhost:3000/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload avatar thất bại');
+      }
+
+      const uploadData = await uploadResponse.json();
+      const avatarUrl = uploadData.url;
+
+      // Update user avatar
+      const updateResponse = await fetch(`http://localhost:3000/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          avatar: avatarUrl
+        })
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error('Cập nhật avatar thất bại');
+      }
+
+      // Update local state
+      const updatedUser = { ...user, avatar: avatarUrl };
+      setUser(updatedUser);
+      AuthService.setUser(updatedUser);
+      
+      alert('Cập nhật avatar thành công!');
+    } catch (error: any) {
+      console.error('Upload avatar error:', error);
+      alert('Upload avatar thất bại: ' + (error.message || 'Lỗi không xác định'));
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   if (!user) {
@@ -68,6 +167,53 @@ const Profile: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Thông tin cá nhân</h1>
           <p className="mt-2 text-gray-600">Quản lý thông tin tài khoản của bạn</p>
+        </div>
+
+        {/* Avatar Section */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="px-6 py-6">
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                {user.avatar ? (
+                  <img
+                    src={`http://localhost:3000${user.avatar}`}
+                    alt="Avatar"
+                    className="w-32 h-32 rounded-full object-cover border-4 border-gray-200"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div 
+                  className={`w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-200 ${user.avatar ? 'hidden' : ''}`}
+                >
+                  <UserIcon className="w-16 h-16 text-gray-400" />
+                </div>
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                  </div>
+                )}
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleAvatarChange}
+                accept="image/*"
+                className="hidden"
+              />
+              <button
+                onClick={handleAvatarClick}
+                disabled={uploadingAvatar}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploadingAvatar ? 'Đang tải...' : user.avatar ? 'Đổi avatar' : 'Tải avatar lên'}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Thông tin cá nhân */}

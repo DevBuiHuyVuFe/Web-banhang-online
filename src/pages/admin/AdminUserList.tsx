@@ -231,9 +231,9 @@ const AdminUserList: React.FC = () => {
                   onChange={(e) => setFormData({...formData, status: e.target.value as 'active' | 'inactive' | 'banned'})}
                   className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="banned">Banned</option>
+                  <option value="active">Hoạt động</option>
+                  <option value="inactive">Không hoạt động</option>
+                  <option value="banned">Bị cấm</option>
                 </select>
               </div>
             </div>
@@ -298,7 +298,7 @@ const AdminUserList: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(user.status)}`}>
-                    {user.status === 'active' ? 'Active' : user.status === 'inactive' ? 'Inactive' : 'Banned'}
+                    {user.status === 'active' ? 'Hoạt động' : user.status === 'inactive' ? 'Không hoạt động' : user.status === 'banned' ? 'Bị cấm' : 'Không xác định'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
