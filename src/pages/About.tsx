@@ -1,5 +1,5 @@
 import React from 'react';
-import { RocketIcon, TargetIcon, SparklesIcon, DiamondIcon, HandshakeIcon, ShoppingCartIcon, TruckIcon, MoneyIcon, ShieldIcon, ChartBarIcon } from '../components/Icons';
+import { RocketIcon, TargetIcon, SparklesIcon, DiamondIcon, HandshakeIcon, ShoppingCartIcon, TruckIcon, MoneyIcon, ShieldIcon } from '../components/Icons';
 
 const About: React.FC = () => {
   return (

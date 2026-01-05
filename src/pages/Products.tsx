@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ProductService } from '../assets/api/productService';
 import { CategoryService } from '../assets/api/categoryService';
-import type { Product, ProductVariant, ProductImage, Category } from '../assets/api/types';
+import type { Product, Category } from '../assets/api/types';
 
 const Products: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
