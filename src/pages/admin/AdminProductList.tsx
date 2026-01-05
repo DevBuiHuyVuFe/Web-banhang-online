@@ -120,7 +120,7 @@ const AdminProductList: React.FC = () => {
     let categoryId = null;
     try {
       const detail = await ProductService.getDetail(product.id);
-      categoryId = detail.product.category_id || null;
+      categoryId = (detail.product as any).category_id || null;
       setProductImages(detail.images || []);
     } catch (e: any) {
       console.error('Load product detail error:', e);
@@ -184,8 +184,8 @@ const AdminProductList: React.FC = () => {
           has_images: formData.has_images,
           brand: formData.brand,
           is_active: formData.is_active,
-          category_id: formData.category_id
-        });
+          category_id: formData.category_id,
+        } as any);
         
         alert('Cập nhật sản phẩm thành công!');
       }
@@ -242,8 +242,7 @@ const AdminProductList: React.FC = () => {
     if (file && file.type.startsWith('image/')) {
       setFormData(prev => ({
         ...prev,
-        primary_image_file: file,
-        primary_image_url: URL.createObjectURL(file)
+        primary_image_file: file
       }));
     } else {
       alert('Vui lòng chọn file ảnh hợp lệ');

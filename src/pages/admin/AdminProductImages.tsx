@@ -1,19 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { 
-  EditIcon, 
-  DeleteIcon, 
-  PlusIcon, 
-  MinusIcon,
-  TrashIcon,
-  ImageIcon, 
-  AdminIcon, 
-  EmptyBoxIcon,
-  CheckIcon,
-  XIcon,
-  SuccessIcon,
-  ErrorIcon
-} from '../../components/Icons';
 import { ProductService } from '../../assets/api/productService';
 import { AdminService } from '../../assets/api/adminService';
 import type { Product, ProductImage } from '../../assets/api/types';

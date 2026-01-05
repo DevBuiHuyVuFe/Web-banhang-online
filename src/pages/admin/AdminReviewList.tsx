@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { AuthService } from '../../assets/api/authService';
 
 interface Review {
   id: number;

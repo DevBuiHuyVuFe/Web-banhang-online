@@ -1,19 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  EditIcon, 
-  DeleteIcon, 
-  PlusIcon, 
-  MinusIcon,
-  TrashIcon,
-  ImageIcon, 
-  AdminIcon, 
-  EmptyBoxIcon,
-  CheckIcon,
-  XIcon,
-  SuccessIcon,
-  ErrorIcon
-} from '../../components/Icons';
 import { AuthService } from '../../assets/api/authService';
 
 interface Voucher {
@@ -46,7 +32,6 @@ const AdminVoucherList: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
-  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [editForm, setEditForm] = useState({
     id: 0,
     code: '',

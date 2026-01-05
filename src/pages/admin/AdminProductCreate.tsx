@@ -1,8 +1,8 @@
 ﻿import React, { useState } from 'react';
 import { AdminService } from '../../assets/api/adminService';
 import { CategoryService } from '../../assets/api/categoryService';
-import type { Category, ProductImage } from '../../assets/api/types';
-import { TrashIcon, ClockIcon, CheckIcon, XIcon, FileIcon, PlusIcon, DocumentIcon } from '../../components/Icons';
+import type { Category } from '../../assets/api/types';
+import { TrashIcon, ClockIcon, CheckIcon, XIcon, FileIcon, PlusIcon, StarIcon } from '../../components/Icons';
 
 interface ProductFormData {
   name: string;
@@ -335,7 +335,7 @@ const AdminProductCreate: React.FC = () => {
         brand: form.brand?.trim() || undefined,
         is_active: form.is_active,
         category_id: form.category_id || undefined,
-      });
+      } as any);
       
       // Sau khi tạo sản phẩm thành công, thêm ảnh con
       if (res.success && productImages.length > 0) {

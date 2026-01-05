@@ -139,9 +139,6 @@ const AdminProductVariantList: React.FC = () => {
     }).format(price);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN');
-  };
 
   if (loading) {
     return (

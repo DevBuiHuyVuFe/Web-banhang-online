@@ -1,5 +1,4 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { AdminService } from '../../assets/api/adminService';
 
 interface InventoryItem {
   id: number;
