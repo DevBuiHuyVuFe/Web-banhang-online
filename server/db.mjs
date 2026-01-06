@@ -1,13 +1,13 @@
 import 'dotenv/config';
 import mysql from 'mysql2/promise';
 
-const {
-  DB_HOST = 'shortline.proxy.rlwy.net',
-  DB_PORT = '43943',
-  DB_USER = 'root',
-  DB_PASSWORD = 'EaeZlITLbITHtUvsWLEjaSrBIoEIPvbo',
-  DB_NAME = 'banhang',
-} = process.env;
+// const {
+//   DB_HOST = 'shortline.proxy.rlwy.net',
+//   DB_PORT = '43943',
+//   DB_USER = 'root',
+//   DB_PASSWORD = 'EaeZlITLbITHtUvsWLEjaSrBIoEIPvbo',
+//   DB_NAME = 'banhang',
+// } = process.env;
 
 export const pool = mysql.createPool({
   host: DB_HOST,
