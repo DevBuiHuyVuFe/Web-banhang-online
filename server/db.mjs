@@ -2,10 +2,10 @@ import 'dotenv/config';
 import mysql from 'mysql2/promise';
 
 const {
-  DB_HOST = '127.0.0.1',
-  DB_PORT = '3306',
+  DB_HOST = 'shortline.proxy.rlwy.net',
+  DB_PORT = '43943',
   DB_USER = 'root',
-  DB_PASSWORD = 'vudz2310',
+  DB_PASSWORD = 'EaeZlITLbITHtUvsWLEjaSrBIoEIPvbo',
   DB_NAME = 'banhang',
 } = process.env;
 
