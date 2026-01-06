@@ -143,7 +143,7 @@ const Header: React.FC = () => {
             </Link>
           </nav>
 
-          {/* Mobile menu button và tên user */}
+          {/* Mobile menu button và tên user/login */}
           <div className="md:hidden flex items-center space-x-2">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -152,11 +152,29 @@ const Header: React.FC = () => {
             >
               {mobileMenuOpen ? <XIcon className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
             </button>
-            {/* Hiển thị tên user trên mobile */}
-            {user && (
+            {/* Hiển thị tên user hoặc login/signup trên mobile */}
+            {user ? (
               <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate text-center justify-center flex">
                 {user.full_name}
               </span>
+            ) : (
+              <div className="flex items-center space-x-1">
+                <Link
+                  to="/login"
+                  className="text-xs px-2 py-1 text-gray-700 hover:text-blue-600 transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Đăng nhập
+                </Link>
+                <span className="text-gray-300">|</span>
+                <Link
+                  to="/register"
+                  className="text-xs px-2 py-1 text-blue-600 hover:text-blue-700 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Đăng ký
+                </Link>
+              </div>
             )}
           </div>
 
