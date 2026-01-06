@@ -124,10 +124,10 @@ const Products: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+    <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">
             {matchedCategory ? matchedCategory.name : selectedCategory ? `Danh mục: ${selectedCategory}` : 'Sản phẩm'}
           </h1>
           {matchedCategory ? (
@@ -142,11 +142,11 @@ const Products: React.FC = () => {
         </div>
         
         {/* Category filter */}
-        <div className="mt-4 md:mt-0">
+        <div className="mt-4 md:mt-0 w-full md:w-auto">
           <select
             value={selectedCategory}
             onChange={(e) => handleCategoryChange(e.target.value)}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full md:w-auto px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
           >
             <option value="">Tất cả danh mục</option>
             {categories.map((category) => (
@@ -170,7 +170,7 @@ const Products: React.FC = () => {
       )}
 
       {/* Danh sách sản phẩm */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {products.map((product) => (
           <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
             <Link to={`/products/${product.id}`}>

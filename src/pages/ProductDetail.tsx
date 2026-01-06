@@ -234,16 +234,16 @@ const ProductDetail: React.FC = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto p-4">
+    <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
       {/* Thông báo thành công */}
       {showSuccess && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce flex items-center">
-          <CheckIcon className="w-5 h-5 mr-2" />
+        <div className="fixed top-4 right-2 sm:right-4 bg-green-500 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg z-50 animate-bounce flex items-center text-sm sm:text-base">
+          <CheckIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
           <span>Đã thêm vào giỏ hàng thành công!</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
         {/* Ảnh sản phẩm */}
         <div className="space-y-4">
           <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
@@ -322,11 +322,11 @@ const ProductDetail: React.FC = () => {
         {/* Thông tin sản phẩm */}
         <div className="space-y-6">
           {/* Product Info */}
-          <div className="flex-1 px-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
+          <div className="flex-1 px-0 sm:px-4 md:px-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
             
             {/* Rating Summary */}
-            <div className="flex items-center space-x-4 mb-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
               <div className="flex items-center space-x-2">
                 {renderStars(getAverageRating())}
                 <span className="text-lg font-semibold text-gray-900">
@@ -430,7 +430,7 @@ const ProductDetail: React.FC = () => {
             )}
 
             {/* LUÔN HIỂN THỊ CÁC NÚT */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={handleAddToCart}
                 disabled={addingToCart || !selectedVariant}

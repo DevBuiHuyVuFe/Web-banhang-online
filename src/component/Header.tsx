@@ -4,12 +4,14 @@ import { AuthService } from '../assets/api/authService';
 import { CartService } from '../assets/api/cartService';
 import { CategoryService } from '../assets/api/categoryService';
 import type { User, Category } from '../assets/api/types';
-import { ChevronDownIcon, ShoppingCartIcon } from '../components/Icons';
+import { ChevronDownIcon, ShoppingCartIcon, MenuIcon, XIcon } from '../components/Icons';
 
 const Header: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [cartItemCount, setCartItemCount] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false);
 
   useEffect(() => {
     const currentUser = AuthService.getUser();
@@ -56,11 +58,11 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="bg-white shadow-md">
+    <header className="bg-white shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="text-2xl font-bold text-blue-600">
+          <Link to="/" className="text-xl sm:text-2xl font-bold text-blue-600">
             Shop Điện thoại VIP
           </Link>
 
@@ -116,8 +118,17 @@ const Header: React.FC = () => {
             </Link>
           </nav>
 
+          {/* Mobile menu button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden text-gray-700 hover:text-blue-600 transition-colors"
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? <XIcon className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
+          </button>
+
           {/* User actions */}
-          <div className="flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-4">
             {/* Cart */}
             <Link to="/cart" className="relative text-gray-700 hover:text-blue-600 transition-colors">
               <ShoppingCartIcon />
@@ -180,7 +191,148 @@ const Header: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Mobile cart button */}
+          <Link to="/cart" className="md:hidden relative text-gray-700 hover:text-blue-600 transition-colors ml-2">
+            <ShoppingCartIcon />
+            {cartItemCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {cartItemCount > 99 ? '99+' : cartItemCount}
+              </span>
+            )}
+          </Link>
         </div>
+
+        {/* Mobile menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-gray-200 py-4">
+            <nav className="flex flex-col space-y-4">
+              <Link 
+                to="/" 
+                className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Trang chủ
+              </Link>
+              
+              {/* Mobile categories */}
+              <div>
+                <button
+                  onClick={() => setMobileCategoryOpen(!mobileCategoryOpen)}
+                  className="w-full flex items-center justify-between px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+                >
+                  <span>Danh mục</span>
+                  <ChevronDownIcon className={`w-4 h-4 transition-transform ${mobileCategoryOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {mobileCategoryOpen && (
+                  <div className="pl-4 mt-2 space-y-2">
+                    <Link
+                      to="/products"
+                      className="block px-4 py-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setMobileCategoryOpen(false);
+                      }}
+                    >
+                      Tất cả sản phẩm
+                    </Link>
+                    {categories.map((category) => (
+                      <Link
+                        key={category.id}
+                        to={`/products?category=${category.slug}`}
+                        className="block px-4 py-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          setMobileCategoryOpen(false);
+                        }}
+                      >
+                        {category.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <Link 
+                to="/products" 
+                className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Sản phẩm
+              </Link>
+              <Link 
+                to="/about" 
+                className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Giới thiệu
+              </Link>
+              <Link 
+                to="/contact" 
+                className="px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Liên hệ
+              </Link>
+
+              {/* Mobile user menu */}
+              {user ? (
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <div className="px-4 py-2 text-gray-700 font-semibold">{user.full_name}</div>
+                  <Link
+                    to="/profile"
+                    className="block px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Hồ sơ
+                  </Link>
+                  {user.role === 'admin' && (
+                    <Link
+                      to="/admin/products"
+                      className="block px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Quản trị
+                    </Link>
+                  )}
+                  <Link 
+                    to="/orders" 
+                    className="block px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Đơn hàng
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="block w-full text-left px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
+                  >
+                    Đăng xuất
+                  </button>
+                </div>
+              ) : (
+                <div className="border-t border-gray-200 pt-4 mt-4 flex flex-col space-y-2 px-4">
+                  <Link
+                    to="/login"
+                    className="px-4 py-2 text-center text-gray-700 hover:text-blue-600 transition-colors border border-gray-300 rounded"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Đăng nhập
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="px-4 py-2 text-center bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Đăng ký
+                  </Link>
+                </div>
+              )}
+            </nav>
+          </div>
+        )}
       </div>
     </header>
   );

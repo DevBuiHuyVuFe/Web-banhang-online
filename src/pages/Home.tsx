@@ -85,24 +85,24 @@ const Home: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-20">
+      <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-12 sm:py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-5xl font-bold mb-6">Chào mừng đến với ShopOnline</h1>
-          <p className="text-xl mb-8">Khám phá những sản phẩm công nghệ tốt nhất với giá cả hợp lý</p>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6">Chào mừng đến với ShopOnline</h1>
+          <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 px-2">Khám phá những sản phẩm công nghệ tốt nhất với giá cả hợp lý</p>
           <Link 
             to="/products" 
-            className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+            className="inline-block bg-white text-blue-600 px-6 sm:px-8 py-2 sm:py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors text-sm sm:text-base"
           >
             Mua sắm ngay
           </Link>
         </div>
       </section>
 
-      {/* Categories */}
-      <section className="py-16 bg-white">
+      {/* Categories - ẩn trên màn hình điện thoại */}
+      <section className="hidden md:block py-8 sm:py-12 md:py-16 bg-white">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Danh mục sản phẩm</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6 sm:mb-8 md:mb-12">Danh mục sản phẩm</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-3 sm:gap-4 md:gap-6">
             {categories.map((category, index) => (
               <Link
                 key={index}
@@ -125,13 +125,13 @@ const Home: React.FC = () => {
       {featuredProducts.length > 0 && (
         <section className="py-16 bg-gray-50">
           <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-3xl font-bold">Sản phẩm nổi bật</h2>
-              <Link to="/products?featured=true" className="text-blue-600 hover:text-blue-800 font-medium">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
+              <h2 className="text-2xl sm:text-3xl font-bold">Sản phẩm nổi bật</h2>
+              <Link to="/products?featured=true" className="text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base">
                 Xem tất cả 
               </Link>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {featuredProducts.map((product) => (
                 <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                   <Link to={`/products/${product.id}`}>

@@ -90,13 +90,13 @@ const Cart: React.FC = () => {
   const totalAmount = CartService.calculateTotal(cartItems);
   const totalQuantity = CartService.calculateTotalQuantity(cartItems);
 
-  if (loading) return <div className="max-w-7xl mx-auto p-4">Đang tải giỏ hàng...</div>;
+  if (loading) return <div className="max-w-7xl mx-auto p-3 sm:p-4">Đang tải giỏ hàng...</div>;
 
-  if (error) return <div className="max-w-7xl mx-auto p-4 text-red-600">{error}</div>;
+  if (error) return <div className="max-w-7xl mx-auto p-3 sm:p-4 text-red-600">{error}</div>;
 
   if (cartItems.length === 0) {
     return (
-      <div className="max-w-7xl mx-auto p-4">
+      <div className="max-w-7xl mx-auto p-3 sm:p-4">
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold mb-4">Giỏ hàng trống</h1>
           <p className="text-gray-600 mb-6">Bạn chưa có sản phẩm nào trong giỏ hàng.</p>
@@ -112,10 +112,10 @@ const Cart: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Giỏ hàng</h1>
+    <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Giỏ hàng</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
         {/* Danh sách sản phẩm */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow">
@@ -133,9 +133,9 @@ const Cart: React.FC = () => {
 
             <div className="divide-y">
               {cartItems.map((item) => (
-                <div key={item.id} className="p-4 flex items-center space-x-4">
+                <div key={item.id} className="p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                   {/* Ảnh sản phẩm */}
-                  <div className="w-20 h-20 bg-gray-100 rounded flex-shrink-0">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded flex-shrink-0">
                     {item.product_img ? (
                       <img
                         src={item.product_img}
@@ -153,51 +153,54 @@ const Cart: React.FC = () => {
                   </div>
 
                   {/* Thông tin sản phẩm */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-gray-900 truncate">
+                  <div className="flex-1 min-w-0 w-full sm:w-auto">
+                    <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base">
                       {item.product_name || `Sản phẩm #${item.variant_id}`}
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-xs sm:text-sm text-gray-500">
                       SKU: {item.variant_sku || 'N/A'}
                     </p>
                     {item.color && (
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs sm:text-sm text-gray-500">
                         Màu: {item.color}
                       </p>
                     )}
                     {item.size && (
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs sm:text-sm text-gray-500">
                         Size: {item.size}
                       </p>
                     )}
                   </div>
 
-                  {/* Số lượng */}
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      disabled={updating === item.id}
-                      className="w-8 h-8 border rounded flex items-center justify-center hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      -
-                    </button>
-                    <span className="w-12 text-center">{item.quantity}</span>
-                    <button
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      disabled={updating === item.id}
-                      className="w-8 h-8 border rounded flex items-center justify-center hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  {/* Giá */}
-                  <div className="text-right">
-                    <div className="font-semibold text-lg">
-                      {formatCurrency(item.unit_price * item.quantity)}
+                  {/* Số lượng và Giá */}
+                  <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
+                    {/* Số lượng */}
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        disabled={updating === item.id}
+                        className="w-7 h-7 sm:w-8 sm:h-8 border rounded flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 text-sm sm:text-base"
+                      >
+                        -
+                      </button>
+                      <span className="w-10 sm:w-12 text-center text-sm sm:text-base">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        disabled={updating === item.id}
+                        className="w-7 h-7 sm:w-8 sm:h-8 border rounded flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 text-sm sm:text-base"
+                      >
+                        +
+                      </button>
                     </div>
-                    <div className="text-sm text-gray-500">
-                      {formatCurrency(item.unit_price)} / sản phẩm
+
+                    {/* Giá */}
+                    <div className="text-right">
+                      <div className="font-semibold text-base sm:text-lg">
+                        {formatCurrency(item.unit_price * item.quantity)}
+                      </div>
+                      <div className="text-xs sm:text-sm text-gray-500">
+                        {formatCurrency(item.unit_price)} / sản phẩm
+                      </div>
                     </div>
                   </div>
 
@@ -218,13 +221,13 @@ const Cart: React.FC = () => {
 
         {/* Tóm tắt đơn hàng */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow p-6 sticky top-4">
-            <h2 className="text-lg font-semibold mb-4">Tóm tắt đơn hàng</h2>
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6 sticky top-4">
+            <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Tóm tắt đơn hàng</h2>
             
-            <div className="space-y-3 mb-6">
+            <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6 text-sm sm:text-base">
               <div className="flex justify-between">
                 <span>Tạm tính ({totalQuantity} sản phẩm)</span>
-                <span>{formatCurrency(totalAmount)}</span>
+                <span className="font-medium">{formatCurrency(totalAmount)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Phí vận chuyển</span>
@@ -234,8 +237,8 @@ const Cart: React.FC = () => {
                 <span>Thuế</span>
                 <span>0đ</span>
               </div>
-              <div className="border-t pt-3">
-                <div className="flex justify-between font-semibold text-lg">
+              <div className="border-t pt-2 sm:pt-3">
+                <div className="flex justify-between font-semibold text-base sm:text-lg">
                   <span>Tổng cộng</span>
                   <span className="text-blue-600">{formatCurrency(totalAmount)}</span>
                 </div>
@@ -245,7 +248,7 @@ const Cart: React.FC = () => {
             <button
               onClick={() => navigate('/checkout')}
               disabled={cartItems.length === 0}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
+              className="w-full py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold text-sm sm:text-base"
             >
               Tiến hành thanh toán
             </button>
