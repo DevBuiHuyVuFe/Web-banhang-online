@@ -1,4 +1,13 @@
-export const API_BASE_URL = ((import.meta as any).env?.VITE_API_BASE_URL as string) ;
+// Tự động detect environment: production hoặc local
+const isProduction = import.meta.env.PROD;
+const envApiUrl = (import.meta as any).env?.VITE_API_BASE_URL as string;
+
+// Nếu có VITE_API_BASE_URL trong env thì dùng, nếu không thì tự động detect
+export const API_BASE_URL = envApiUrl || (
+  isProduction 
+    ? `${window.location.origin}/api` // Production: dùng cùng domain với frontend
+    : 'http://localhost:3000/api' // Local API URL
+);
 
 function joinUrl(base: string, path: string) {
   if (!base.endsWith('/')) base += '/';

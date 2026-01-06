@@ -1,7 +1,7 @@
 ﻿// Sửa lỗi frontend - thêm ?admin=1 vào các request
-const approveReview = async (reviewId: number) => {
+const approveReview = async (reviewId) => {
   try {
-    const response = await fetch(http://localhost:3000/api/reviews//approve?admin=1, {
+    const response = await fetch(`http://localhost:3000/api/reviews/approve?admin=1`, {
       method: 'POST',
       credentials: 'include'
     });
@@ -20,9 +20,9 @@ const approveReview = async (reviewId: number) => {
   }
 };
 
-const rejectReview = async (reviewId: number) => {
+const rejectReview = async (reviewId) => {
   try {
-    const response = await fetch(http://localhost:3000/api/reviews//reject?admin=1, {
+    const response = await fetch(`http://localhost:3000/api/reviews/reject?admin=1`, {
       method: 'POST',
       credentials: 'include'
     });
@@ -41,11 +41,11 @@ const rejectReview = async (reviewId: number) => {
   }
 };
 
-const deleteReview = async (reviewId: number) => {
+const deleteReview = async (reviewId) => {
   if (!confirm('Bạn có chắc muốn xóa đánh giá này?')) return;
   
   try {
-    const response = await fetch(http://localhost:3000/api/reviews/?admin=1, {
+    const response = await fetch(`http://localhost:3000/api/reviews?admin=1`, {
       method: 'DELETE',
       credentials: 'include'
     });

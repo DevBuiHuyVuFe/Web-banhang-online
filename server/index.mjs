@@ -12,8 +12,35 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ;
-app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
+// Cấu hình CORS: hỗ trợ cả local và production
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN;
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://web-banhang-online.vercel.app',
+  FRONTEND_ORIGIN
+].filter(Boolean);
+
+app.use(cors({ 
+  origin: function (origin, callback) {
+    // Cho phép requests không có origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Cho phép nếu origin trong danh sách allowed hoặc match với FRONTEND_ORIGIN
+    if (allowedOrigins.includes(origin) || origin === FRONTEND_ORIGIN) {
+      callback(null, true);
+    } else {
+      // Trong production, chỉ cho phép origins đã được cấu hình
+      if (process.env.NODE_ENV === 'production') {
+        callback(new Error('Not allowed by CORS'));
+      } else {
+        // Trong development, cho phép tất cả
+        callback(null, true);
+      }
+    }
+  },
+  credentials: true 
+}));
 app.use(express.json());
 
 // Helper: fetch JSON với timeout (Node 18+)
@@ -2754,12 +2781,17 @@ app.get('/api/orders/:id/items-with-details', async (req, res) => {
   }
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server đang chạy trên port ${PORT}`);
-  console.log(`Frontend origin: ${FRONTEND_ORIGIN}`);
-}); 
+// Export app để Vercel có thể sử dụng
+export default app;
+
+// Chỉ chạy server nếu không phải trên Vercel (Vercel sẽ tự động chạy)
+if (process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server đang chạy trên port ${PORT}`);
+    console.log(`Frontend origin: ${FRONTEND_ORIGIN}`);
+  });
+} 
 
 // Public: Lấy danh sách voucher khả dụng cho checkout
 app.get('/api/vouchers/available', async (req, res) => {
