@@ -5,6 +5,16 @@ import { CartService } from '../assets/api/cartService';
 import { CategoryService } from '../assets/api/categoryService';
 import type { User, Category } from '../assets/api/types';
 import { ChevronDownIcon, ShoppingCartIcon, MenuIcon, XIcon } from '../components/Icons';
+import { API_BASE_URL } from '../assets/api/http';
+
+// Helper function để build full URL cho avatar
+const getAvatarUrl = (avatar: string | null | undefined): string => {
+  if (!avatar) return '';
+  if (avatar.startsWith('http')) return avatar;
+  // Lấy base URL từ API_BASE_URL (bỏ /api ở cuối)
+  const baseUrl = API_BASE_URL.replace('/api', '');
+  return `${baseUrl}${avatar}`;
+};
 
 const Header: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -133,14 +143,22 @@ const Header: React.FC = () => {
             </Link>
           </nav>
 
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden text-gray-700 hover:text-blue-600 transition-colors"
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? <XIcon className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
-          </button>
+          {/* Mobile menu button và tên user */}
+          <div className="md:hidden flex items-center space-x-2">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="text-gray-700 hover:text-blue-600 transition-colors"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <XIcon className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
+            </button>
+            {/* Hiển thị tên user trên mobile */}
+            {user && (
+              <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate text-center justify-center flex">
+                {user.full_name}
+              </span>
+            )}
+          </div>
 
           {/* User actions */}
           <div className="hidden md:flex items-center space-x-4">
@@ -156,37 +174,69 @@ const Header: React.FC = () => {
 
             {/* User menu */}
             {user ? (
-              <div className="relative group">
-                <button className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors">
-                  <span>{user.full_name}</span>
-                  <ChevronDownIcon />
-                </button>
+              <div className="flex items-center space-x-3">
+                {/* Hiển thị tên người dùng */}
+                <span className="text-gray-700 font-medium hidden lg:block">
+                  Xin chào, <span className="text-blue-600">{user.full_name}</span>
+                </span>
                 
-                {/* Dropdown menu */}
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                  <Link
-                    to="/profile"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Hồ sơ
-                  </Link>
-                  {user.role === 'admin' && (
+                {/* Avatar hoặc icon */}
+                <div className="relative group">
+                  <button className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors">
+                    {user.avatar ? (
+                      <img 
+                        src={getAvatarUrl(user.avatar)}
+                        alt={user.full_name}
+                        className="w-8 h-8 rounded-full object-cover border-2 border-gray-200"
+                        onError={(e) => {
+                          // Fallback về avatar mặc định nếu ảnh lỗi
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const fallback = target.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className={`w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center ${user.avatar ? 'hidden' : ''}`}
+                    >
+                      <span className="text-blue-600 font-semibold text-sm">
+                        {user.full_name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <ChevronDownIcon className="w-4 h-4" />
+                  </button>
+                  
+                  {/* Dropdown menu */}
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
+                      <div className="text-xs text-gray-500">{user.email}</div>
+                    </div>
                     <Link
-                      to="/admin/products"
+                      to="/profile"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
-                      Quản trị
+                      Hồ sơ
                     </Link>
-                  )}
-                  <Link to="/orders" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Đơn hàng
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Đăng xuất
-                  </button>
+                    {user.role === 'admin' && (
+                      <Link
+                        to="/admin/products"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Quản trị
+                      </Link>
+                    )}
+                    <Link to="/orders" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      Đơn hàng
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Đăng xuất
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -293,7 +343,33 @@ const Header: React.FC = () => {
               {/* Mobile user menu */}
               {user ? (
                 <div className="border-t border-gray-200 pt-4 mt-4">
-                  <div className="px-4 py-2 text-gray-700 font-semibold">{user.full_name}</div>
+                  <div className="px-4 py-3 bg-gray-50 rounded-lg mb-2 flex items-center space-x-3">
+                    {user.avatar ? (
+                      <img 
+                        src={getAvatarUrl(user.avatar)}
+                        alt={user.full_name}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+                        onError={(e) => {
+                          // Fallback về avatar mặc định nếu ảnh lỗi
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const fallback = target.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className={`w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center ${user.avatar ? 'hidden' : ''}`}
+                    >
+                      <span className="text-blue-600 font-semibold">
+                        {user.full_name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{user.full_name}</div>
+                      <div className="text-xs text-gray-500">{user.email}</div>
+                    </div>
+                  </div>
                   <Link
                     to="/profile"
                     className="block px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
