@@ -1,7 +1,13 @@
 ﻿// Sửa lỗi frontend - thêm ?admin=1 vào các request
+// Dùng base URL động để chạy được cả trên localhost và domain (Vercel)
+const API_BASE =
+  (window && window.location && window.location.origin
+    ? window.location.origin + '/api'
+    : 'http://localhost:3000/api');
+
 const approveReview = async (reviewId) => {
   try {
-    const response = await fetch(`http://localhost:3000/api/reviews/approve?admin=1`, {
+    const response = await fetch(`${API_BASE}/reviews/approve?admin=1`, {
       method: 'POST',
       credentials: 'include'
     });
@@ -22,7 +28,7 @@ const approveReview = async (reviewId) => {
 
 const rejectReview = async (reviewId) => {
   try {
-    const response = await fetch(`http://localhost:3000/api/reviews/reject?admin=1`, {
+    const response = await fetch(`${API_BASE}/reviews/reject?admin=1`, {
       method: 'POST',
       credentials: 'include'
     });
@@ -45,7 +51,7 @@ const deleteReview = async (reviewId) => {
   if (!confirm('Bạn có chắc muốn xóa đánh giá này?')) return;
   
   try {
-    const response = await fetch(`http://localhost:3000/api/reviews?admin=1`, {
+    const response = await fetch(`${API_BASE}/reviews?admin=1`, {
       method: 'DELETE',
       credentials: 'include'
     });

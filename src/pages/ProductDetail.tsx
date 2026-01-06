@@ -30,6 +30,7 @@ const ProductDetail: React.FC = () => {
   const [error, setError] = useState('');
   const [addingToCart, setAddingToCart] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   // Review states
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -53,6 +54,8 @@ const ProductDetail: React.FC = () => {
         if (detail.variants.length > 0) {
           setSelectedVariant(detail.variants[0]);
         }
+        // Reset image index khi load sản phẩm mới
+        setCurrentImageIndex(0);
         
         // Debug logging
         console.log('ProductDetail loaded:', {
@@ -224,13 +227,47 @@ const ProductDetail: React.FC = () => {
 
   if (!product) return <div className="max-w-7xl mx-auto p-4">Không tìm thấy sản phẩm</div>;
 
+  // Tạo mảng tất cả ảnh (ảnh chính + ảnh con)
+  const allImages: Array<{ url: string; alt: string; title: string }> = [];
+  if (product.product_img) {
+    allImages.push({
+      url: product.product_img,
+      alt: product.product_img_alt || product.name,
+      title: product.product_img_title || product.name
+    });
+  }
+  images.forEach((image) => {
+    allImages.push({
+      url: image.url,
+      alt: `${product.name} - Image ${image.id}`,
+      title: `${product.name} - Image ${image.id}`
+    });
+  });
+
+  const hasMultipleImages = allImages.length > 1;
+  const currentImage = allImages[currentImageIndex] || allImages[0];
+
+  const handleThumbnailClick = (index: number) => {
+    setCurrentImageIndex(index);
+  };
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : allImages.length - 1));
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) => (prev < allImages.length - 1 ? prev + 1 : 0));
+  };
+
   // Debug logging
   console.log('ProductDetail render:', {
     product,
     variants: variants.length,
     selectedVariant,
     images: images.length,
-    product_img: product.product_img
+    product_img: product.product_img,
+    allImages: allImages.length,
+    currentImageIndex
   });
 
   return (
@@ -246,77 +283,128 @@ const ProductDetail: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
         {/* Ảnh sản phẩm */}
         <div className="space-y-4">
-          <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-            {product.product_img ? (
-              <img
-                src={product.product_img}
-                alt={product.product_img_alt || product.name}
-                title={product.product_img_title || product.name}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  // Fallback về placeholder local khi ảnh lỗi
-                  const imgElement = e.target as HTMLImageElement;
-                  imgElement.style.display = 'none';
-                  const fallback = imgElement.parentElement?.querySelector('.fallback-placeholder');
-                  if (fallback) {
-                    (fallback as HTMLElement).style.display = 'flex';
-                  }
-                }}
-              />
-            ) : null}
-            
-            {/* Fallback placeholder khi không có ảnh hoặc ảnh lỗi */}
-            <div className={`fallback-placeholder w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 ${
-              product.product_img ? 'hidden' : ''
-            }`}>
-              <div className="text-center">
-                <svg className="w-32 h-32 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          {/* Slideshow - chỉ hiển thị khi có nhiều ảnh */}
+          {hasMultipleImages ? (
+            <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group">
+              {/* Ảnh chính */}
+              {currentImage ? (
+                <img
+                  src={currentImage.url}
+                  alt={currentImage.alt}
+                  title={currentImage.title}
+                  className="w-full h-full object-cover transition-opacity duration-300"
+                  onError={(e) => {
+                    const imgElement = e.target as HTMLImageElement;
+                    imgElement.style.display = 'none';
+                    const fallback = imgElement.parentElement?.querySelector('.fallback-placeholder');
+                    if (fallback) {
+                      (fallback as HTMLElement).style.display = 'flex';
+                    }
+                  }}
+                />
+              ) : null}
+              
+              {/* Nút Previous */}
+              <button
+                onClick={handlePrevImage}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                aria-label="Ảnh trước"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                <div className="text-lg text-gray-600 font-medium">
-                  {product.name}
+              </button>
+              
+              {/* Nút Next */}
+              <button
+                onClick={handleNextImage}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                aria-label="Ảnh tiếp theo"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              
+              {/* Chỉ số ảnh */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                {currentImageIndex + 1} / {allImages.length}
+              </div>
+              
+              {/* Fallback placeholder khi không có ảnh hoặc ảnh lỗi */}
+              <div className={`fallback-placeholder w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 ${
+                currentImage ? 'hidden' : ''
+              }`}>
+                <div className="text-center">
+                  <svg className="w-32 h-32 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <div className="text-lg text-gray-600 font-medium">
+                    {product.name}
+                  </div>
+                  <p className="text-sm text-gray-500">Chưa có ảnh</p>
                 </div>
-                <p className="text-sm text-gray-500">Chưa có ảnh</p>
               </div>
             </div>
-          </div>
-          
-          {/* Thumbnail ảnh - sử dụng cả ảnh chính và ảnh con */}
-          <div className="flex space-x-2 overflow-x-auto">
-            {/* Ảnh chính */}
-            {product.product_img && (
-              <img
-                src={product.product_img}
-                alt={product.product_img_alt || product.name}
-                title={product.product_img_title || product.name}
-                className="w-20 h-20 object-cover rounded cursor-pointer hover:opacity-80 border-2 border-blue-500"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0zMCAzMEg3MFY3MEgzMFYzMFoiIGZpbGw9IiNEN0Q5RDEiLz4KPHBhdGggZD0iTTM1IDM1VjY1SDY1VjM1SDM1WiIgZmlsbD0iI0M3Q0QxQyIvPgo8L3N2Zz4K';
-                }}
-              />
-            )}
-            
-            {/* Ảnh con từ product_images */}
-            {images.map((image) => (
-              <img
-                key={image.id}
-                src={image.url}
-                alt={`${product.name} - Image ${image.id}`}
-                title={`${product.name} - Image ${image.id}`}
-                className="w-20 h-20 object-cover rounded cursor-pointer hover:opacity-80 border-2 border-gray-200 hover:border-gray-300"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0zMCAzMEg3MFY3MEgzMFYzMFoiIGZpbGw9IiNEN0Q5RDEiLz4KPHBhdGggZD0iTTM1IDM1VjY1SDY1VjM1SDM1WiIgZmlsbD0iI0M3Q0QxQyIvPgo8L3N2Zz4K';
-                }}
-              />
-            ))}
-            
-            {/* Thông báo nếu không có ảnh nào */}
-            {!product.product_img && images.length === 0 && (
-              <div className="w-20 h-20 flex items-center justify-center bg-gray-100 rounded text-xs text-gray-500 text-center">
-                Chưa có ảnh
+          ) : (
+            // Hiển thị ảnh đơn giản khi chỉ có 1 ảnh
+            <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+              {currentImage ? (
+                <img
+                  src={currentImage.url}
+                  alt={currentImage.alt}
+                  title={currentImage.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const imgElement = e.target as HTMLImageElement;
+                    imgElement.style.display = 'none';
+                    const fallback = imgElement.parentElement?.querySelector('.fallback-placeholder');
+                    if (fallback) {
+                      (fallback as HTMLElement).style.display = 'flex';
+                    }
+                  }}
+                />
+              ) : null}
+              
+              {/* Fallback placeholder khi không có ảnh hoặc ảnh lỗi */}
+              <div className={`fallback-placeholder w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 ${
+                currentImage ? 'hidden' : ''
+              }`}>
+                <div className="text-center">
+                  <svg className="w-32 h-32 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <div className="text-lg text-gray-600 font-medium">
+                    {product.name}
+                  </div>
+                  <p className="text-sm text-gray-500">Chưa có ảnh</p>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+          
+          {/* Thumbnail ảnh - chỉ hiển thị khi có nhiều ảnh */}
+          {hasMultipleImages && (
+            <div className="flex space-x-2 overflow-x-auto">
+              {allImages.map((image, index) => (
+                <img
+                  key={index}
+                  src={image.url}
+                  alt={image.alt}
+                  title={image.title}
+                  onClick={() => handleThumbnailClick(index)}
+                  className={`w-20 h-20 object-cover rounded cursor-pointer hover:opacity-80 transition-all ${
+                    currentImageIndex === index
+                      ? 'border-2 border-blue-500 ring-2 ring-blue-200'
+                      : 'border-2 border-gray-200 hover:border-gray-300'
+                  }`}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0zMCAzMEg3MFY3MEgzMFYzMFoiIGZpbGw9IiNEN0Q5RDEiLz4KPHBhdGggZD0iTTM1IDM1VjY1SDY1VjM1SDM1WiIgZmlsbD0iI0M3Q0QxQyIvPgo8L3N2Zz4K';
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Thông tin sản phẩm */}
