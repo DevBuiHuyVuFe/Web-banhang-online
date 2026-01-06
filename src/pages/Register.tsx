@@ -22,7 +22,11 @@ const Register: React.FC = () => {
       if (res?.success && res.user) {
         AuthService.setUser(res.user);
         setSuccess('Đăng ký thành công! Đang chuyển hướng...');
-        setTimeout(() => navigate('/profile'), 600);
+        setTimeout(() => {
+          navigate('/profile');
+          // Reload để update header
+          setTimeout(() => window.location.reload(), 100);
+        }, 600);
       } else {
         setError(res?.message || 'Đăng ký thất bại');
       }

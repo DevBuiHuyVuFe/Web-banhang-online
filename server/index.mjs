@@ -231,8 +231,29 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(500).json({ error: 'Không thể kết nối database', detail: String(dbError) });
     }
 
+    // Kiểm tra và thêm cột avatar nếu chưa có
+    try {
+      await pool.query('SELECT avatar FROM users LIMIT 1');
+    } catch (e) {
+      if (e.code === 'ER_BAD_FIELD_ERROR') {
+        console.log('Adding avatar column to users table...');
+        await pool.query('ALTER TABLE users ADD COLUMN avatar VARCHAR(255) DEFAULT NULL');
+        console.log('Avatar column added successfully');
+      }
+    }
+
+    // Build SELECT query động dựa trên các cột có sẵn
+    let selectColumns = ['id', 'email', 'full_name', 'phone', 'role', 'status'];
+    try {
+      const [cols] = await pool.query('DESCRIBE users');
+      const existingColumns = cols.map((c) => c.Field);
+      if (existingColumns.includes('avatar')) {
+        selectColumns.push('COALESCE(avatar, NULL) as avatar');
+      }
+    } catch {}
+
     const [users] = await pool.query(
-      'SELECT id, email, full_name, phone, role, status, COALESCE(avatar, NULL) as avatar FROM users WHERE email = ? AND password_hash = ? LIMIT 1',
+      `SELECT ${selectColumns.join(', ')} FROM users WHERE email = ? AND password_hash = ? LIMIT 1`,
       [email, password]
     );
 

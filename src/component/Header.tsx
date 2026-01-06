@@ -44,10 +44,23 @@ const Header: React.FC = () => {
       loadCartCount();
     };
     
+    // Listen for auth changes
+    const handleAuthChange = () => {
+      const currentUser = AuthService.getUser();
+      setUser(currentUser);
+      if (!currentUser) {
+        setCartItemCount(0);
+      } else {
+        loadCartCount();
+      }
+    };
+    
     window.addEventListener('cartUpdated', handleCartUpdate);
+    window.addEventListener('authChanged', handleAuthChange);
     
     return () => {
       window.removeEventListener('cartUpdated', handleCartUpdate);
+      window.removeEventListener('authChanged', handleAuthChange);
     };
   }, []);
 
@@ -55,6 +68,8 @@ const Header: React.FC = () => {
     AuthService.clearUser();
     setUser(null);
     setCartItemCount(0);
+    // Reload để update toàn bộ UI
+    setTimeout(() => window.location.reload(), 100);
   };
 
   return (

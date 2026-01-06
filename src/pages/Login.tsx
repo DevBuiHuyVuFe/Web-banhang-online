@@ -38,10 +38,13 @@ const Login: React.FC = () => {
           // Nếu là admin, có thể redirect về admin dashboard
           const intendedPath = location.state?.intendedPath || '/admin/products';
           navigate(intendedPath);
+          // Reload để update header
+          setTimeout(() => window.location.reload(), 100);
         } else {
           // Nếu không phải admin, về trang chủ
           navigate('/');
-          window.location.reload();
+          // Reload để update header
+          setTimeout(() => window.location.reload(), 100);
         }
       }
     } catch (err: any) {
