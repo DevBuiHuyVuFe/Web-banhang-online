@@ -34,8 +34,25 @@ export const AuthService = {
   },
 
   getUser(): User | null {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        return null;
+      }
+      const user = JSON.parse(userStr);
+      // Kiểm tra user có đủ thông tin cần thiết không
+      if (!user || typeof user.id !== 'number') {
+        console.error('Invalid user object in localStorage:', user);
+        // Xóa user không hợp lệ
+        localStorage.removeItem('user');
+        return null;
+      }
+      return user;
+    } catch (error) {
+      console.error('Error parsing user from localStorage:', error);
+      localStorage.removeItem('user');
+      return null;
+    }
   },
 
   clearUser(): void {

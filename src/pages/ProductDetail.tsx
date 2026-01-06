@@ -97,25 +97,57 @@ const ProductDetail: React.FC = () => {
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!AuthService.getUser()) {
-      alert('Vui lòng đăng nhập để đánh giá sản phẩm');
-      navigate('/login');
-      return;
-    }
-
     if (!reviewForm.content.trim()) {
       alert('Vui lòng nhập nội dung đánh giá');
       return;
     }
 
+    // Kiểm tra đăng nhập
+    const currentUser = AuthService.getUser();
+    console.log('[ProductDetail] Current user from AuthService:', currentUser);
+    console.log('[ProductDetail] LocalStorage raw:', localStorage.getItem('user'));
+    
+    if (!currentUser) {
+      alert('Vui lòng đăng nhập để đánh giá sản phẩm');
+      navigate('/login');
+      return;
+    }
+    
+    // Kiểm tra user có id không
+    if (!currentUser.id && currentUser.id !== 0) {
+      console.error('[ProductDetail] User object missing id:', currentUser);
+      console.error('[ProductDetail] User keys:', Object.keys(currentUser));
+      alert('Lỗi: Thông tin người dùng không hợp lệ. Vui lòng đăng nhập lại.');
+      AuthService.clearUser();
+      navigate('/login');
+      return;
+    }
+
+    // Đảm bảo user_id là number
+    const userId = Number(currentUser.id);
+    if (isNaN(userId) || userId <= 0) {
+      console.error('[ProductDetail] Invalid user_id:', currentUser.id, 'Type:', typeof currentUser.id);
+      alert('Lỗi: ID người dùng không hợp lệ. Vui lòng đăng nhập lại.');
+      AuthService.clearUser();
+      navigate('/login');
+      return;
+    }
+
     setSubmittingReview(true);
     try {
-      const currentUser = AuthService.getUser();
-      if (!currentUser || !currentUser.id) {
-        alert('Vui lòng đăng nhập để đánh giá sản phẩm');
-        navigate('/login');
-        return;
-      }
+
+      const requestBody = {
+        product_id: productId,
+        user_id: userId,
+        rating: reviewForm.rating,
+        title: reviewForm.title.trim(),
+        content: reviewForm.content.trim()
+      };
+      
+      console.log('[ProductDetail] Current user object:', currentUser);
+      console.log('[ProductDetail] Extracted user_id:', userId);
+      console.log('[ProductDetail] Sending review request:', requestBody);
+      console.log('[ProductDetail] Request body JSON:', JSON.stringify(requestBody));
 
       const response = await fetch('http://localhost:3000/api/reviews', {
         method: 'POST',
@@ -123,13 +155,7 @@ const ProductDetail: React.FC = () => {
           'Content-Type': 'application/json'
         },
         credentials: 'include',
-        body: JSON.stringify({
-          product_id: productId,
-          user_id: currentUser.id, // Gửi user_id từ account đang đăng nhập
-          rating: reviewForm.rating,
-          title: reviewForm.title.trim(),
-          content: reviewForm.content.trim()
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {

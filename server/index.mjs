@@ -1877,17 +1877,26 @@ app.get('/api/products/:id/reviews', async (req, res) => {
     }
 
     const [rows] = await pool.query(`
-      SELECT r.*, u.full_name, u.email
+      SELECT r.*, u.full_name, u.email, u.id as user_id_from_users
       FROM product_reviews r
-      JOIN users u ON r.user_id = u.id
+      LEFT JOIN users u ON r.user_id = u.id
       WHERE r.product_id = ? AND r.is_approved = TRUE
       ORDER BY r.created_at DESC
     `, [productId]);
     
+    // Log để debug
+    console.log(`[GET /api/products/${productId}/reviews] Found ${rows.length} reviews`);
+    rows.forEach((r, idx) => {
+      console.log(`  Review ${idx + 1}: user_id=${r.user_id}, full_name=${r.full_name}, email=${r.email}`);
+    });
+    
     const data = rows.map((r) => ({
       ...r,
       is_approved: r.is_approved === 1 || r.is_approved === true,
-      comment: r.content || r.title || ''
+      comment: r.content || r.title || '',
+      // Đảm bảo full_name và email được lấy từ bảng users
+      full_name: r.full_name || `User #${r.user_id}`,
+      email: r.email || ''
     }));
     res.json({ data });
   } catch (e) {
@@ -1900,7 +1909,8 @@ app.get('/api/products/:id/reviews', async (req, res) => {
 // Tạo review mới
 app.post('/api/reviews', async (req, res) => {
   try {
-    const { product_id, rating, title, content } = req.body;
+    console.log('[POST /api/reviews] Request body:', req.body);
+    const { product_id, rating, title, content, user_id } = req.body;
     
     // Kiểm tra từng trường và đưa ra thông báo cụ thể
     const missingFields = [];
@@ -1938,10 +1948,17 @@ app.post('/api/reviews', async (req, res) => {
     }
 
     // Lấy user_id từ request body (frontend sẽ gửi kèm)
-    const userId = req.body.user_id;
+    const userId = user_id || req.body.user_id;
+    
+    console.log('[POST /api/reviews] Extracted user_id:', userId);
+    console.log('[POST /api/reviews] Full req.body:', JSON.stringify(req.body));
     
     if (!userId) {
-      return res.status(401).json({ error: 'Chưa đăng nhập. Vui lòng đăng nhập để đánh giá sản phẩm.' });
+      console.error('[POST /api/reviews] Missing user_id in request');
+      return res.status(401).json({ 
+        error: 'Chưa đăng nhập. Vui lòng đăng nhập để đánh giá sản phẩm.',
+        received_body: req.body
+      });
     }
 
     // Kiểm tra user có tồn tại không
@@ -1965,11 +1982,23 @@ app.post('/api/reviews', async (req, res) => {
       return res.status(400).json({ error: 'Sản phẩm này bạn đã đánh giá rồi' });
     }
 
+    // Log để debug
+    console.log(`[POST /api/reviews] Creating review: user_id=${userId}, product_id=${product_id}, rating=${rating}`);
+    
+    // Kiểm tra lại user_id trước khi insert
+    const [userVerify] = await pool.query('SELECT id, full_name, email FROM users WHERE id = ?', [userId]);
+    if (userVerify.length === 0) {
+      return res.status(400).json({ error: 'User không tồn tại' });
+    }
+    console.log(`[POST /api/reviews] User verified: ${userVerify[0].full_name} (${userVerify[0].email})`);
+
     // Tạo review mới - title có thể là null
     const [result] = await pool.query(
       'INSERT INTO product_reviews (user_id, product_id, rating, title, content, is_approved) VALUES (?, ?, ?, ?, ?, FALSE)',
       [userId, product_id, rating, title || null, content]
     );
+
+    console.log(`[POST /api/reviews] Review created successfully: id=${result.insertId}, user_id=${userId}`);
 
     res.json({ 
       success: true, 
@@ -1980,7 +2009,9 @@ app.post('/api/reviews', async (req, res) => {
         rating,
         title: title || null,
         content,
-        user_id: userId
+        user_id: userId,
+        user_name: userVerify[0].full_name,
+        user_email: userVerify[0].email
       }
     });
   } catch (e) {
