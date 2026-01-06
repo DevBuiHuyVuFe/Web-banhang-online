@@ -61,7 +61,7 @@ const Header: React.FC = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="text-2xl font-bold text-blue-600">
-            Shop Điện thoại VIP
+            Shop Điện thoại 
           </Link>
 
           {/* Navigation */}
