@@ -110,6 +110,13 @@ const ProductDetail: React.FC = () => {
 
     setSubmittingReview(true);
     try {
+      const currentUser = AuthService.getUser();
+      if (!currentUser || !currentUser.id) {
+        alert('Vui lòng đăng nhập để đánh giá sản phẩm');
+        navigate('/login');
+        return;
+      }
+
       const response = await fetch('http://localhost:3000/api/reviews', {
         method: 'POST',
         headers: {
@@ -118,6 +125,7 @@ const ProductDetail: React.FC = () => {
         credentials: 'include',
         body: JSON.stringify({
           product_id: productId,
+          user_id: currentUser.id, // Gửi user_id từ account đang đăng nhập
           rating: reviewForm.rating,
           title: reviewForm.title.trim(),
           content: reviewForm.content.trim()
@@ -132,7 +140,7 @@ const ProductDetail: React.FC = () => {
         loadReviews();
       } else {
         const error = await response.json();
-        alert('Gửi đánh giá thất bại: ' + (error.message || 'Lỗi không xác định'));
+        alert('Gửi đánh giá thất bại: ' + (error.error || error.message || 'Lỗi không xác định'));
       }
     } catch (error) {
       console.error('Error submitting review:', error);

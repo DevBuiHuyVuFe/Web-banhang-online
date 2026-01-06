@@ -1937,17 +1937,22 @@ app.post('/api/reviews', async (req, res) => {
       return res.status(404).json({ error: 'Sản phẩm không tồn tại' });
     }
 
-    // Kiểm tra user đã đăng nhập (tạm thời bỏ qua để test)
-    // const userId = req.user?.id;
-    // if (!userId) return res.status(401).json({ error: 'Chưa đăng nhập' });
+    // Lấy user_id từ request body (frontend sẽ gửi kèm)
+    const userId = req.body.user_id;
     
-    // Tạm thời sử dụng user_id = 1 để test
-    const userId = 1;
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa đăng nhập. Vui lòng đăng nhập để đánh giá sản phẩm.' });
+    }
 
     // Kiểm tra user có tồn tại không
-    const [userCheck] = await pool.query('SELECT id FROM users WHERE id = ?', [userId]);
+    const [userCheck] = await pool.query('SELECT id, status FROM users WHERE id = ?', [userId]);
     if (userCheck.length === 0) {
       return res.status(400).json({ error: 'User không tồn tại' });
+    }
+    
+    // Kiểm tra user có đang active không
+    if (userCheck[0].status !== 'active') {
+      return res.status(403).json({ error: 'Tài khoản của bạn đã bị khóa' });
     }
 
     // Kiểm tra user đã đánh giá sản phẩm này chưa
@@ -1957,7 +1962,7 @@ app.post('/api/reviews', async (req, res) => {
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ error: 'Bạn đã đánh giá sản phẩm này rồi' });
+      return res.status(400).json({ error: 'Sản phẩm này bạn đã đánh giá rồi' });
     }
 
     // Tạo review mới - title có thể là null
@@ -2807,11 +2812,11 @@ export default app;
 
 // Chỉ chạy server nếu không phải trên Vercel (Vercel sẽ tự động chạy)
 if (process.env.VERCEL !== '1') {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Server đang chạy trên port ${PORT}`);
-    console.log(`Frontend origin: ${FRONTEND_ORIGIN}`);
-  });
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server đang chạy trên port ${PORT}`);
+  console.log(`Frontend origin: ${FRONTEND_ORIGIN}`);
+}); 
 } 
 
 // Public: Lấy danh sách voucher khả dụng cho checkout
